@@ -6,6 +6,7 @@ import '../../blocs/auth/auth_event.dart';
 import '../../blocs/auth/auth_state.dart';
 import '../../../core/config/dev_config.dart';
 import '../../../core/utils/validators/auth_validator.dart';
+import '../../routes/route_constants.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -28,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
     appBar: AppBar(title: const Text('Login')),
     body: BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
-        if (state is Authenticated) context.go('/dashboard');
+        if (state is Authenticated) context.go(RouteConstants.dashboard);
         if (state is AuthError) {
           ScaffoldMessenger.of(
             context,

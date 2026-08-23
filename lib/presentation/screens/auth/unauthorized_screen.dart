@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../routes/route_constants.dart';
 
 class UnauthorizedScreen extends StatelessWidget {
   const UnauthorizedScreen({super.key});
@@ -12,7 +13,7 @@ class UnauthorizedScreen extends StatelessWidget {
         children: [
           const Text('You do not have permission to view this page.'),
           TextButton(
-            onPressed: () => context.go('/dashboard'),
+            onPressed: () => context.go(RouteConstants.dashboard),
             child: const Text('Back to dashboard'),
           ),
         ],

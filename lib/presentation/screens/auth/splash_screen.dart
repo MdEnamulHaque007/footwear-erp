@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../blocs/auth/auth_bloc.dart';
 import '../../blocs/auth/auth_event.dart';
 import '../../blocs/auth/auth_state.dart';
+import '../../routes/route_constants.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -30,7 +31,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) => BlocListener<AuthBloc, AuthState>(
     listener: (context, state) {
-      if (state is Authenticated) context.go('/dashboard');
+      if (state is Authenticated) context.go(RouteConstants.dashboard);
       if (state is Unauthenticated || state is AuthError) context.go('/login');
     },
     child: const Scaffold(body: Center(child: CircularProgressIndicator())),

@@ -15,11 +15,6 @@ import '../screens/purchase_order/po_list_screen.dart';
 import '../screens/master_lc/master_lc_form_screen.dart';
 import '../screens/master_lc/master_lc_detail_screen.dart';
 import '../screens/purchase_order/po_form_screen.dart';
-import '../screens/cutting/cutting_list_screen.dart';
-import '../screens/sewing/sewing_list_screen.dart';
-import '../screens/production/production_list_screen.dart';
-import '../screens/issue/issue_list_screen.dart';
-import '../screens/export/export_list_screen.dart';
 import '../screens/admin/admin_dashboard_screen.dart';
 import '../screens/user_management/user_list_screen.dart';
 import '../screens/role_management/role_list_screen.dart';
@@ -57,7 +52,6 @@ class AppRoutes {
         path: RouteConstants.resetPassword,
         builder: (_, _) => const ResetPasswordScreen(),
       ),
-      GoRoute(path: '/dashboard', builder: (_, _) => const DashboardScreen()),
       GoRoute(
         path: '/master-lc',
         builder: (_, _) => BlocProvider(
@@ -91,14 +85,6 @@ class AppRoutes {
           child: const POFormScreen(),
         ),
       ),
-      GoRoute(path: '/cutting', builder: (_, _) => const CuttingListScreen()),
-      GoRoute(path: '/sewing', builder: (_, _) => const SewingListScreen()),
-      GoRoute(
-        path: '/production',
-        builder: (_, _) => const ProductionListScreen(),
-      ),
-      GoRoute(path: '/issue', builder: (_, _) => const IssueListScreen()),
-      GoRoute(path: '/export', builder: (_, _) => const ExportListScreen()),
       GoRoute(
         path: '/unauthorized',
         builder: (_, _) => const UnauthorizedScreen(),

@@ -11,4 +11,8 @@ abstract interface class ISewingRepository {
   Future<Either<String, void>> createSewing(SewingEntity item);
   Future<Either<String, void>> update(SewingEntity item);
   Future<Either<String, void>> delete(String id);
+  Future<int> getCumulativeSewingQuantity({
+    required String poTagNo,
+    required DateTime upToDate,
+  });
 }

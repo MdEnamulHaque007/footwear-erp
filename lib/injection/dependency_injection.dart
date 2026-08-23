@@ -21,9 +21,11 @@ import '../domain/usecases/role/get_all_roles_usecase.dart';
 import '../data/repositories/master_lc_repository.dart';
 import '../data/repositories/po_repository.dart';
 import '../data/repositories/cutting_repository.dart';
+import '../data/repositories/sewing_repository.dart';
 import '../domain/repositories/i_master_lc_repository.dart';
 import '../domain/repositories/i_po_repository.dart';
 import '../domain/repositories/i_cutting_repository.dart';
+import '../domain/repositories/i_sewing_repository.dart';
 import '../domain/usecases/master_lc/create_master_lc_usecase.dart';
 import '../domain/usecases/master_lc/get_master_lc_list_usecase.dart';
 import '../domain/usecases/master_lc/update_master_lc_usecase.dart';
@@ -42,6 +44,11 @@ import '../domain/usecases/cutting/create_cutting_usecase.dart';
 import '../domain/usecases/cutting/get_cutting_list_usecase.dart';
 import '../domain/usecases/cutting/update_cutting_usecase.dart';
 import '../domain/usecases/cutting/delete_cutting_usecase.dart';
+import '../domain/usecases/sewing/create_sewing_usecase.dart';
+import '../domain/usecases/sewing/get_sewing_list_usecase.dart';
+import '../domain/usecases/sewing/update_sewing_usecase.dart';
+import '../domain/usecases/sewing/delete_sewing_usecase.dart';
+import '../domain/usecases/sewing/validate_sewing_quantity_usecase.dart';
 import '../presentation/blocs/auth/auth_bloc.dart';
 import '../presentation/blocs/role_management/role_management_bloc.dart';
 import '../presentation/blocs/user_management/user_management_bloc.dart';
@@ -49,6 +56,7 @@ import '../presentation/blocs/master_lc/master_lc_bloc.dart';
 import '../presentation/blocs/purchase_order/po_bloc.dart';
 import '../presentation/blocs/dashboard/dashboard_bloc.dart';
 import '../presentation/blocs/cutting/cutting_bloc.dart';
+import '../presentation/blocs/sewing/sewing_bloc.dart';
 
 final GetIt getIt = GetIt.instance;
 
@@ -65,6 +73,7 @@ Future<void> setupLocator() async {
   getIt.registerLazySingleton<IMasterLCRepository>(MasterLCRepository.new);
   getIt.registerLazySingleton<IPORepository>(PORepository.new);
   getIt.registerLazySingleton<ICuttingRepository>(CuttingRepository.new);
+  getIt.registerLazySingleton<ISewingRepository>(SewingRepository.new);
   getIt.registerLazySingleton(() => LoginUseCase(getIt<IAuthRepository>()));
   getIt.registerLazySingleton(() => RegisterUseCase(getIt<IAuthRepository>()));
   getIt.registerLazySingleton(() => LogoutUseCase(getIt<IAuthRepository>()));
@@ -177,12 +186,35 @@ Future<void> setupLocator() async {
   getIt.registerLazySingleton(
     () => DeleteCuttingUseCase(getIt<ICuttingRepository>()),
   );
+  getIt.registerLazySingleton(
+    () => CreateSewingUseCase(
+      getIt<ISewingRepository>(),
+      ValidateSewingQuantityUseCase(getIt<ICuttingRepository>()),
+    ),
+  );
+  getIt.registerLazySingleton(
+    () => GetSewingListUseCase(getIt<ISewingRepository>()),
+  );
+  getIt.registerLazySingleton(
+    () => UpdateSewingUseCase(getIt<ISewingRepository>()),
+  );
+  getIt.registerLazySingleton(
+    () => DeleteSewingUseCase(getIt<ISewingRepository>()),
+  );
   getIt.registerFactory(
     () => CuttingBloc(
       getList: getIt<GetCuttingListUseCase>(),
       create: getIt<CreateCuttingUseCase>(),
       update: getIt<UpdateCuttingUseCase>(),
       delete: getIt<DeleteCuttingUseCase>(),
+    ),
+  );
+  getIt.registerFactory(
+    () => SewingBloc(
+      getList: getIt<GetSewingListUseCase>(),
+      create: getIt<CreateSewingUseCase>(),
+      update: getIt<UpdateSewingUseCase>(),
+      delete: getIt<DeleteSewingUseCase>(),
     ),
   );
   getIt.registerFactory(

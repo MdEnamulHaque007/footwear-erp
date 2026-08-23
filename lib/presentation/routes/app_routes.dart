@@ -17,6 +17,8 @@ import '../screens/master_lc/master_lc_detail_screen.dart';
 import '../screens/purchase_order/po_form_screen.dart';
 import '../screens/cutting/cutting_list_screen.dart';
 import '../screens/cutting/cutting_form_screen.dart';
+import '../screens/sewing/sewing_list_screen.dart';
+import '../screens/sewing/sewing_form_screen.dart';
 import '../screens/admin/admin_dashboard_screen.dart';
 import '../screens/user_management/user_list_screen.dart';
 import '../screens/role_management/role_list_screen.dart';
@@ -29,6 +31,7 @@ import '../blocs/role_management/role_management_event.dart';
 import '../blocs/master_lc/master_lc_bloc.dart';
 import '../blocs/purchase_order/po_bloc.dart';
 import '../blocs/cutting/cutting_bloc.dart';
+import '../blocs/sewing/sewing_bloc.dart';
 import '../blocs/auth/auth_bloc.dart';
 import 'route_constants.dart';
 import 'route_guard.dart';
@@ -100,6 +103,20 @@ class AppRoutes {
         builder: (_, _) => BlocProvider(
           create: (_) => GetIt.I<CuttingBloc>(),
           child: const CuttingFormScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/sewing',
+        builder: (_, _) => BlocProvider(
+          create: (_) => GetIt.I<SewingBloc>(),
+          child: const SewingListScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/sewing/new',
+        builder: (_, _) => BlocProvider(
+          create: (_) => GetIt.I<SewingBloc>(),
+          child: const SewingFormScreen(),
         ),
       ),
       GoRoute(

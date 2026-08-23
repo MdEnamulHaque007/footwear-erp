@@ -1,22 +1,22 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
 import '../../core/constants/app_constants.dart';
-import '../../domain/entities/cutting_entity.dart';
-import '../../domain/repositories/i_cutting_repository.dart';
-import '../models/cutting/cutting_model.dart';
+import '../../domain/entities/sewing_entity.dart';
+import '../../domain/repositories/i_sewing_repository.dart';
+import '../models/sewing/sewing_model.dart';
 
-class CuttingRepository implements ICuttingRepository {
-  CuttingRepository({FirebaseFirestore? firestore})
+class SewingRepository implements ISewingRepository {
+  SewingRepository({FirebaseFirestore? firestore})
     : _db = firestore ?? FirebaseFirestore.instance;
   final FirebaseFirestore _db;
   CollectionReference<Map<String, dynamic>> get _collection =>
-      _db.collection(AppConstants.collectionCutting);
+      _db.collection(AppConstants.collectionSewing);
 
   /// Keyset-pagination cursor: reset on page 0, advanced to the last doc read.
   DocumentSnapshot<Map<String, dynamic>>? _lastDoc;
 
   @override
-  Future<Either<String, List<CuttingModel>>> getCuttingList({
+  Future<Either<String, List<SewingModel>>> getSewingList({
     int page = 0,
     int limit = 20,
   }) async {
@@ -29,7 +29,7 @@ class CuttingRepository implements ICuttingRepository {
       final snapshot = await query.limit(limit).get();
       if (snapshot.docs.isNotEmpty) _lastDoc = snapshot.docs.last;
 
-      final list = snapshot.docs.map(CuttingModel.fromSnapshot).toList();
+      final list = snapshot.docs.map(SewingModel.fromSnapshot).toList();
       return Right(list);
     } on FirebaseException catch (e) {
       return Left('Database error: ${e.message}');
@@ -39,13 +39,13 @@ class CuttingRepository implements ICuttingRepository {
   }
 
   @override
-  Future<Either<String, List<CuttingModel>>> byPoTag(String poTagNo) async {
+  Future<Either<String, List<SewingModel>>> byPoTag(String poTagNo) async {
     try {
       final s = await _collection
           .where('poTagNo', isEqualTo: poTagNo)
           .orderBy('sl')
           .get();
-      return Right(s.docs.map(CuttingModel.fromSnapshot).toList());
+      return Right(s.docs.map(SewingModel.fromSnapshot).toList());
     } on FirebaseException catch (e) {
       return Left('Database error: ${e.message}');
     } catch (e) {
@@ -54,10 +54,10 @@ class CuttingRepository implements ICuttingRepository {
   }
 
   @override
-  Future<Either<String, void>> createCutting(CuttingEntity item) async {
+  Future<Either<String, void>> createSewing(SewingEntity item) async {
     try {
       final ref = _collection.doc();
-      final data = CuttingModel.fromEntity(item).toFirestore();
+      final data = SewingModel.fromEntity(item).toFirestore();
       data['id'] = ref.id;
       await ref.set(data);
       return const Right(null);
@@ -69,11 +69,11 @@ class CuttingRepository implements ICuttingRepository {
   }
 
   @override
-  Future<Either<String, void>> update(CuttingEntity item) async {
+  Future<Either<String, void>> update(SewingEntity item) async {
     try {
-      await _collection
-          .doc(item.id)
-          .update(CuttingModel.fromEntity(item).toFirestore());
+      final data = SewingModel.fromEntity(item).toFirestore();
+      data['updatedAt'] = Timestamp.now();
+      await _collection.doc(item.id).update(data);
       return const Right(null);
     } on FirebaseException catch (e) {
       return Left('Failed to update: ${e.message}');
@@ -92,20 +92,5 @@ class CuttingRepository implements ICuttingRepository {
     } catch (e) {
       return const Left('An unexpected error occurred');
     }
-  }
-
-  @override
-  Future<int> getCumulativeCuttingQuantity({
-    required String poTagNo,
-    required DateTime upToDate,
-  }) async {
-    final snapshot = await _collection
-        .where('poTagNo', isEqualTo: poTagNo)
-        .where('cuttingDate', isLessThanOrEqualTo: Timestamp.fromDate(upToDate))
-        .get();
-    return snapshot.docs.fold<int>(
-      0,
-      (total, doc) => total + ((doc.data()['quantity'] as num?) ?? 0).toInt(),
-    );
   }
 }

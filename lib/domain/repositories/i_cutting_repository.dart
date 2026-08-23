@@ -11,4 +11,8 @@ abstract interface class ICuttingRepository {
   Future<Either<String, void>> createCutting(CuttingEntity item);
   Future<Either<String, void>> update(CuttingEntity item);
   Future<Either<String, void>> delete(String id);
+  Future<int> getCumulativeCuttingQuantity({
+    required String poTagNo,
+    required DateTime upToDate,
+  });
 }

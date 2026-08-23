@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dart analyze *)",
+      "Bash(echo \"ANALYZE_EXIT:$?\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{content_type}\\\\n\" http://localhost:8080/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{content_type}\\\\n\" http://localhost:8080/main.dart.js)",
+      "Bash(curl -s http://localhost:8080/flutter_bootstrap.js)",
+      "Bash(curl -s http://localhost:8080/main.dart.js)",
+      "Bash(curl -s http://localhost:8080/)",
+      "Bash(flutter test *)",
+      "Bash(echo \"TEST_EXIT:$?\")",
+      "Bash(curl -s -o /dev/null -w \"GET / -> %{http_code}\\\\n\" http://localhost:8080/)",
+      "Bash(curl -s -o /dev/null -w \"GET /main.dart.js -> %{http_code} %{content_type}\\\\n\" http://localhost:8080/main.dart.js)"
+    ]
+  }
+}

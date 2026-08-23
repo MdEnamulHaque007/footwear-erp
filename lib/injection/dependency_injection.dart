@@ -20,8 +20,10 @@ import '../domain/usecases/role/update_role_permissions_usecase.dart';
 import '../domain/usecases/role/get_all_roles_usecase.dart';
 import '../data/repositories/master_lc_repository.dart';
 import '../data/repositories/po_repository.dart';
+import '../data/repositories/cutting_repository.dart';
 import '../domain/repositories/i_master_lc_repository.dart';
 import '../domain/repositories/i_po_repository.dart';
+import '../domain/repositories/i_cutting_repository.dart';
 import '../domain/usecases/master_lc/create_master_lc_usecase.dart';
 import '../domain/usecases/master_lc/get_master_lc_list_usecase.dart';
 import '../domain/usecases/master_lc/update_master_lc_usecase.dart';
@@ -36,12 +38,17 @@ import '../domain/usecases/user/get_all_users_usecase.dart';
 import '../domain/usecases/user/update_user_permissions_usecase.dart';
 import '../domain/usecases/user/update_user_role_usecase.dart';
 import '../domain/usecases/user/update_user_status_usecase.dart';
+import '../domain/usecases/cutting/create_cutting_usecase.dart';
+import '../domain/usecases/cutting/get_cutting_list_usecase.dart';
+import '../domain/usecases/cutting/update_cutting_usecase.dart';
+import '../domain/usecases/cutting/delete_cutting_usecase.dart';
 import '../presentation/blocs/auth/auth_bloc.dart';
 import '../presentation/blocs/role_management/role_management_bloc.dart';
 import '../presentation/blocs/user_management/user_management_bloc.dart';
 import '../presentation/blocs/master_lc/master_lc_bloc.dart';
 import '../presentation/blocs/purchase_order/po_bloc.dart';
 import '../presentation/blocs/dashboard/dashboard_bloc.dart';
+import '../presentation/blocs/cutting/cutting_bloc.dart';
 
 final GetIt getIt = GetIt.instance;
 
@@ -57,6 +64,7 @@ Future<void> setupLocator() async {
   getIt.registerLazySingleton<IRoleRepository>(RoleRepository.new);
   getIt.registerLazySingleton<IMasterLCRepository>(MasterLCRepository.new);
   getIt.registerLazySingleton<IPORepository>(PORepository.new);
+  getIt.registerLazySingleton<ICuttingRepository>(CuttingRepository.new);
   getIt.registerLazySingleton(() => LoginUseCase(getIt<IAuthRepository>()));
   getIt.registerLazySingleton(() => RegisterUseCase(getIt<IAuthRepository>()));
   getIt.registerLazySingleton(() => LogoutUseCase(getIt<IAuthRepository>()));
@@ -157,10 +165,27 @@ Future<void> setupLocator() async {
       deleteRole: getIt<DeleteRoleUseCase>(),
     ),
   );
+  getIt.registerLazySingleton(
+    () => CreateCuttingUseCase(getIt<ICuttingRepository>()),
+  );
+  getIt.registerLazySingleton(
+    () => GetCuttingListUseCase(getIt<ICuttingRepository>()),
+  );
+  getIt.registerLazySingleton(
+    () => UpdateCuttingUseCase(getIt<ICuttingRepository>()),
+  );
+  getIt.registerLazySingleton(
+    () => DeleteCuttingUseCase(getIt<ICuttingRepository>()),
+  );
   getIt.registerFactory(
-    () => DashboardBloc(
-      getIt<IUserRepository>(),
-      getIt<IRoleRepository>(),
+    () => CuttingBloc(
+      getList: getIt<GetCuttingListUseCase>(),
+      create: getIt<CreateCuttingUseCase>(),
+      update: getIt<UpdateCuttingUseCase>(),
+      delete: getIt<DeleteCuttingUseCase>(),
     ),
+  );
+  getIt.registerFactory(
+    () => DashboardBloc(getIt<IUserRepository>(), getIt<IRoleRepository>()),
   );
 }

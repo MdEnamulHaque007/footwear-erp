@@ -9,7 +9,7 @@ class UserModel extends UserEntity {
     required super.email,
     required super.displayName,
     required super.role,
-    required super.permissions,
+    super.permissions,
     required super.isEmailVerified,
     required super.isActive,
     super.lastLogin,
@@ -24,7 +24,7 @@ class UserModel extends UserEntity {
       displayName:
           user.displayName ?? (profile['displayName'] as String? ?? ''),
       role: profile['role'] as String? ?? 'viewer',
-      permissions: Map<String, bool>.from(profile['permissions'] as Map? ?? {}),
+      permissions: _permissionsFromJson(profile['permissions']),
       isEmailVerified: user.emailVerified,
       isActive: profile['isActive'] as bool? ?? true,
       lastLogin: _date(profile['lastLogin']),
@@ -41,11 +41,25 @@ class UserModel extends UserEntity {
       email: data['email'] as String? ?? '',
       displayName: data['displayName'] as String? ?? '',
       role: data['role'] as String? ?? 'viewer',
-      permissions: Map<String, bool>.from(data['permissions'] as Map? ?? {}),
+      permissions: _permissionsFromJson(data['permissions']),
       isEmailVerified: data['isEmailVerified'] as bool? ?? false,
       isActive: data['isActive'] as bool? ?? true,
       lastLogin: _date(data['lastLogin']),
       createdAt: _date(data['createdAt']),
+    );
+  }
+
+  static Map<String, Map<String, bool>>? _permissionsFromJson(dynamic json) {
+    if (json == null || json is! Map) return null;
+    return json.map(
+      (key, value) => MapEntry(
+        key.toString(),
+        Map<String, bool>.from(
+          (value is Map ? value : {}).map(
+            (k, v) => MapEntry(k.toString(), v == true),
+          ),
+        ),
+      ),
     );
   }
 

@@ -19,6 +19,7 @@ class ProductionBloc extends Bloc<ProductionEvent, ProductionState> {
       _hasMore = true;
       emit(ProductionLoading());
       final result = await getList(page: _currentPage, limit: 20);
+      if (emit.isDone) return;
       result.fold((error) => emit(ProductionError(error)), (items) {
         _items = items;
         _hasMore = items.length == 20;
@@ -27,19 +28,26 @@ class ProductionBloc extends Bloc<ProductionEvent, ProductionState> {
     });
 
     on<LoadMoreProductionList>((event, emit) async {
-      if (!_hasMore) return;
+      if (!_hasMore || _isLoadingMore) return;
+      _isLoadingMore = true;
       _currentPage++;
-      final result = await getList(page: _currentPage, limit: 20);
-      result.fold((error) => emit(ProductionError(error)), (items) {
-        _items.addAll(items);
-        _hasMore = items.length == 20;
-        emit(ProductionLoaded(List.from(_items)));
-      });
+      try {
+        final result = await getList(page: _currentPage, limit: 20);
+        if (emit.isDone) return;
+        result.fold((error) => emit(ProductionError(error)), (items) {
+          _items.addAll(items);
+          _hasMore = items.length == 20;
+          emit(ProductionLoaded(List.from(_items)));
+        });
+      } finally {
+        _isLoadingMore = false;
+      }
     });
 
     on<CreateProduction>((event, emit) async {
       emit(ProductionLoading());
       final result = await create(event.item);
+      if (emit.isDone) return;
       result.fold((error) => emit(ProductionError(error)), (_) {
         emit(ProductionSuccess('Production record created'));
         add(LoadProductionList());
@@ -49,6 +57,7 @@ class ProductionBloc extends Bloc<ProductionEvent, ProductionState> {
     on<UpdateProduction>((event, emit) async {
       emit(ProductionLoading());
       final result = await update(event.item);
+      if (emit.isDone) return;
       result.fold((error) => emit(ProductionError(error)), (_) {
         emit(ProductionSuccess('Production record updated'));
         add(LoadProductionList());
@@ -58,6 +67,7 @@ class ProductionBloc extends Bloc<ProductionEvent, ProductionState> {
     on<DeleteProduction>((event, emit) async {
       emit(ProductionLoading());
       final result = await delete(event.id);
+      if (emit.isDone) return;
       result.fold((error) => emit(ProductionError(error)), (_) {
         emit(ProductionSuccess('Production record deleted'));
         add(LoadProductionList());
@@ -72,5 +82,6 @@ class ProductionBloc extends Bloc<ProductionEvent, ProductionState> {
 
   int _currentPage = 0;
   bool _hasMore = true;
+  bool _isLoadingMore = false;
   List<ProductionEntity> _items = [];
 }

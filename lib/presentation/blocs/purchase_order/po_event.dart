@@ -5,6 +5,17 @@ sealed class POEvent {}
 class LoadPOList extends POEvent {}
 
 class LoadMorePOList extends POEvent {}
+class SearchPO extends POEvent {
+  SearchPO(this.query);
+  final String query;
+}
+class ClearSearch extends POEvent {}
+class RefreshPOList extends POEvent {}
+class LoadPODetail extends POEvent {
+  LoadPODetail(this.id, {this.initialItem});
+  final String id;
+  final POEntity? initialItem;
+}
 
 class LoadPOByTag extends POEvent {
   LoadPOByTag(this.tag);

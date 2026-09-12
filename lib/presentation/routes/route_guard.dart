@@ -4,23 +4,21 @@ import '../blocs/auth/auth_bloc.dart';
 import '../blocs/auth/auth_state.dart';
 
 class RouteGuard {
+  static const _publicPaths = {'/login', '/register', '/reset-password'};
+
+  static bool _isPublicPath(String location) => _publicPaths.contains(location);
+
   static String? redirect(GoRouterState state) {
     final authState = GetIt.I<AuthBloc>().state;
-    
+
     // Check: Is user authenticated?
     if (authState is! Authenticated) {
-      final isPublic = state.matchedLocation == '/login' ||
-                       state.matchedLocation == '/register' ||
-                       state.matchedLocation == '/reset-password';
-      if (!isPublic) return '/login'; // Redirect to login
+      if (!_isPublicPath(state.matchedLocation)) return '/login'; // Redirect to login
       return null;
     }
-    
+
     // User is authenticated
-    final isPublic = state.matchedLocation == '/login' ||
-                     state.matchedLocation == '/register' ||
-                     state.matchedLocation == '/reset-password';
-    if (isPublic) return '/';
+    if (_isPublicPath(state.matchedLocation)) return '/';
 
     // Check: Is this an admin route?
     final isAdminRoute = state.matchedLocation.startsWith('/admin');
@@ -30,7 +28,7 @@ class RouteGuard {
         return '/unauthorized';
       }
     }
-    
+
     return null; // Allow navigation
   }
 }

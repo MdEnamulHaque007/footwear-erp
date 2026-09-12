@@ -23,9 +23,10 @@ class FirebaseFirestoreService {
   }
 
   Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> getDocuments(
-    String collection,
-  ) async {
-    final snapshot = await _firestore.collection(collection).get();
+    String collection, {
+    int limit = 20,
+  }) async {
+    final snapshot = await _firestore.collection(collection).limit(limit).get();
     return snapshot.docs;
   }
 }

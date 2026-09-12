@@ -18,6 +18,7 @@ class UserManagementBloc extends Bloc<UserManagementEvent, UserManagementState> 
     on<LoadUsers>((event, emit) async {
       emit(UserManagementLoading());
       final result = await getUsers();
+      if (emit.isDone) return;
       result.fold(
         (error) => emit(UserManagementError(error)),
         (users) => emit(UserManagementLoaded(users)),
@@ -27,6 +28,7 @@ class UserManagementBloc extends Bloc<UserManagementEvent, UserManagementState> 
     on<UpdateUserRole>((event, emit) async {
       emit(UserManagementLoading());
       final result = await updateRole(event.uid, event.role);
+      if (emit.isDone) return;
       result.fold(
         (error) => emit(UserManagementError(error)),
         (_) {
@@ -39,6 +41,7 @@ class UserManagementBloc extends Bloc<UserManagementEvent, UserManagementState> 
     on<UpdateUserPermissions>((event, emit) async {
       emit(UserManagementLoading());
       final result = await updatePermissions(event.uid, event.permissions);
+      if (emit.isDone) return;
       result.fold(
         (error) => emit(UserManagementError(error)),
         (_) {
@@ -51,6 +54,7 @@ class UserManagementBloc extends Bloc<UserManagementEvent, UserManagementState> 
     on<UpdateUserStatus>((event, emit) async {
       emit(UserManagementLoading());
       final result = await updateStatus(event.uid, event.active);
+      if (emit.isDone) return;
       result.fold(
         (error) => emit(UserManagementError(error)),
         (_) {
@@ -63,6 +67,7 @@ class UserManagementBloc extends Bloc<UserManagementEvent, UserManagementState> 
     on<DeleteUser>((event, emit) async {
       emit(UserManagementLoading());
       final result = await deleteUser(event.uid);
+      if (emit.isDone) return;
       result.fold(
         (error) => emit(UserManagementError(error)),
         (_) {

@@ -23,20 +23,25 @@ import '../data/repositories/po_repository.dart';
 import '../data/repositories/cutting_repository.dart';
 import '../data/repositories/sewing_repository.dart';
 import '../data/repositories/production_repository.dart';
+import '../data/repositories/issue_repository.dart';
 import '../domain/repositories/i_master_lc_repository.dart';
 import '../domain/repositories/i_po_repository.dart';
 import '../domain/repositories/i_cutting_repository.dart';
 import '../domain/repositories/i_sewing_repository.dart';
 import '../domain/repositories/i_production_repository.dart';
+import '../domain/repositories/i_issue_repository.dart';
 import '../domain/usecases/master_lc/create_master_lc_usecase.dart';
 import '../domain/usecases/master_lc/get_master_lc_list_usecase.dart';
 import '../domain/usecases/master_lc/update_master_lc_usecase.dart';
 import '../domain/usecases/master_lc/delete_master_lc_usecase.dart';
+import '../domain/usecases/master_lc/get_master_lc_by_tag_usecase.dart';
+import '../domain/usecases/master_lc/get_master_lc_by_id_usecase.dart';
 import '../domain/usecases/purchase_order/create_po_usecase.dart';
 import '../domain/usecases/purchase_order/get_po_list_usecase.dart';
 import '../domain/usecases/purchase_order/get_po_by_tag_usecase.dart';
 import '../domain/usecases/purchase_order/update_po_usecase.dart';
 import '../domain/usecases/purchase_order/delete_po_usecase.dart';
+import '../domain/usecases/purchase_order/validate_po_quantity_usecase.dart';
 import '../domain/usecases/user/delete_user_usecase.dart';
 import '../domain/usecases/user/get_all_users_usecase.dart';
 import '../domain/usecases/user/update_user_permissions_usecase.dart';
@@ -46,6 +51,11 @@ import '../domain/usecases/cutting/create_cutting_usecase.dart';
 import '../domain/usecases/cutting/get_cutting_list_usecase.dart';
 import '../domain/usecases/cutting/update_cutting_usecase.dart';
 import '../domain/usecases/cutting/delete_cutting_usecase.dart';
+import '../domain/usecases/cutting/get_po_no_list_usecase.dart';
+import '../domain/usecases/cutting/get_po_by_no_usecase.dart';
+import '../domain/usecases/cutting/get_po_list_for_dropdown_usecase.dart';
+import '../domain/usecases/cutting/get_cumulative_cutting_usecase.dart';
+import '../domain/usecases/cutting/validate_cutting_quantity_usecase.dart';
 import '../domain/usecases/sewing/create_sewing_usecase.dart';
 import '../domain/usecases/sewing/get_sewing_list_usecase.dart';
 import '../domain/usecases/sewing/update_sewing_usecase.dart';
@@ -56,6 +66,11 @@ import '../domain/usecases/production/get_production_list_usecase.dart';
 import '../domain/usecases/production/update_production_usecase.dart';
 import '../domain/usecases/production/delete_production_usecase.dart';
 import '../domain/usecases/production/validate_production_quantity_usecase.dart';
+import '../domain/usecases/issue/create_issue_usecase.dart';
+import '../domain/usecases/issue/get_issue_list_usecase.dart';
+import '../domain/usecases/issue/update_issue_usecase.dart';
+import '../domain/usecases/issue/delete_issue_usecase.dart';
+import '../domain/usecases/issue/validate_issue_quantity_usecase.dart';
 import '../presentation/blocs/auth/auth_bloc.dart';
 import '../presentation/blocs/role_management/role_management_bloc.dart';
 import '../presentation/blocs/user_management/user_management_bloc.dart';
@@ -65,6 +80,7 @@ import '../presentation/blocs/dashboard/dashboard_bloc.dart';
 import '../presentation/blocs/cutting/cutting_bloc.dart';
 import '../presentation/blocs/sewing/sewing_bloc.dart';
 import '../presentation/blocs/production/production_bloc.dart';
+import '../presentation/blocs/issue/issue_bloc.dart';
 
 final GetIt getIt = GetIt.instance;
 
@@ -83,6 +99,7 @@ Future<void> setupLocator() async {
   getIt.registerLazySingleton<ICuttingRepository>(CuttingRepository.new);
   getIt.registerLazySingleton<ISewingRepository>(SewingRepository.new);
   getIt.registerLazySingleton<IProductionRepository>(ProductionRepository.new);
+  getIt.registerLazySingleton<IIssueRepository>(IssueRepository.new);
   getIt.registerLazySingleton(() => LoginUseCase(getIt<IAuthRepository>()));
   getIt.registerLazySingleton(() => RegisterUseCase(getIt<IAuthRepository>()));
   getIt.registerLazySingleton(() => LogoutUseCase(getIt<IAuthRepository>()));
@@ -117,18 +134,42 @@ Future<void> setupLocator() async {
   getIt.registerLazySingleton(
     () => DeleteMasterLCUseCase(getIt<IMasterLCRepository>()),
   );
+  getIt.registerLazySingleton(
+    () => GetMasterLCByTagUseCase(getIt<IMasterLCRepository>()),
+  );
+  getIt.registerLazySingleton(
+    () => GetMasterLCByIdUseCase(getIt<IMasterLCRepository>()),
+  );
   getIt.registerFactory(
     () => MasterLCBloc(
       getList: getIt<GetMasterLCListUseCase>(),
       create: getIt<CreateMasterLCUseCase>(),
       update: getIt<UpdateMasterLCUseCase>(),
       delete: getIt<DeleteMasterLCUseCase>(),
+      getById: getIt<GetMasterLCByIdUseCase>(),
+      getPOByTag: getIt<GetPOByTagUseCase>(),
     ),
   );
-  getIt.registerLazySingleton(() => CreatePOUseCase(getIt<IPORepository>()));
   getIt.registerLazySingleton(() => GetPOListUseCase(getIt<IPORepository>()));
   getIt.registerLazySingleton(() => GetPOByTagUseCase(getIt<IPORepository>()));
-  getIt.registerLazySingleton(() => UpdatePOUseCase(getIt<IPORepository>()));
+  getIt.registerLazySingleton(
+    () => ValidatePOQuantityUseCase(
+      getIt<IPORepository>(),
+      getIt<IMasterLCRepository>(),
+    ),
+  );
+  getIt.registerLazySingleton(
+    () => CreatePOUseCase(
+      getIt<IPORepository>(),
+      getIt<ValidatePOQuantityUseCase>(),
+    ),
+  );
+  getIt.registerLazySingleton(
+    () => UpdatePOUseCase(
+      getIt<IPORepository>(),
+      getIt<ValidatePOQuantityUseCase>(),
+    ),
+  );
   getIt.registerLazySingleton(() => DeletePOUseCase(getIt<IPORepository>()));
   getIt.registerFactory(
     () => POBloc(
@@ -137,6 +178,8 @@ Future<void> setupLocator() async {
       create: getIt<CreatePOUseCase>(),
       update: getIt<UpdatePOUseCase>(),
       delete: getIt<DeletePOUseCase>(),
+      validateQuantity: getIt<ValidatePOQuantityUseCase>(),
+      getMasterLCByTag: getIt<GetMasterLCByTagUseCase>(),
     ),
   );
   getIt.registerLazySingleton(
@@ -184,7 +227,10 @@ Future<void> setupLocator() async {
     ),
   );
   getIt.registerLazySingleton(
-    () => CreateCuttingUseCase(getIt<ICuttingRepository>()),
+    () => CreateCuttingUseCase(
+      getIt<ICuttingRepository>(),
+      getIt<ValidateCuttingQuantityUseCase>(),
+    ),
   );
   getIt.registerLazySingleton(
     () => GetCuttingListUseCase(getIt<ICuttingRepository>()),
@@ -194,6 +240,21 @@ Future<void> setupLocator() async {
   );
   getIt.registerLazySingleton(
     () => DeleteCuttingUseCase(getIt<ICuttingRepository>()),
+  );
+  getIt.registerLazySingleton(
+    () => GetPONoListUseCase(getIt<ICuttingRepository>()),
+  );
+  getIt.registerLazySingleton(
+    () => GetPOByNoUseCase(getIt<ICuttingRepository>()),
+  );
+  getIt.registerLazySingleton(
+    () => GetPOListForDropdownUseCase(getIt<ICuttingRepository>()),
+  );
+  getIt.registerLazySingleton(
+    () => GetCumulativeCuttingUseCase(getIt<ICuttingRepository>()),
+  );
+  getIt.registerLazySingleton(
+    () => ValidateCuttingQuantityUseCase(getIt<ICuttingRepository>()),
   );
   getIt.registerLazySingleton(
     () => CreateSewingUseCase(
@@ -225,12 +286,42 @@ Future<void> setupLocator() async {
   getIt.registerLazySingleton(
     () => DeleteProductionUseCase(getIt<IProductionRepository>()),
   );
+  getIt.registerLazySingleton(
+    () => CreateIssueUseCase(
+      getIt<IIssueRepository>(),
+      ValidateIssueQuantityUseCase(
+        getIt<IProductionRepository>(),
+        getIt<IIssueRepository>(),
+      ),
+    ),
+  );
+  getIt.registerLazySingleton(
+    () => GetIssueListUseCase(getIt<IIssueRepository>()),
+  );
+  getIt.registerLazySingleton(
+    () => UpdateIssueUseCase(
+      getIt<IIssueRepository>(),
+      ValidateIssueQuantityUseCase(
+        getIt<IProductionRepository>(),
+        getIt<IIssueRepository>(),
+      ),
+    ),
+  );
+  getIt.registerLazySingleton(
+    () => DeleteIssueUseCase(getIt<IIssueRepository>()),
+  );
   getIt.registerFactory(
     () => CuttingBloc(
       getList: getIt<GetCuttingListUseCase>(),
       create: getIt<CreateCuttingUseCase>(),
       update: getIt<UpdateCuttingUseCase>(),
       delete: getIt<DeleteCuttingUseCase>(),
+      getPONos: getIt<GetPONoListUseCase>(),
+      getPOList: getIt<GetPOListForDropdownUseCase>(),
+      getPOByNo: getIt<GetPOByNoUseCase>(),
+      getCumulative: getIt<GetCumulativeCuttingUseCase>(),
+      validateQuantity: getIt<ValidateCuttingQuantityUseCase>(),
+      repository: getIt<ICuttingRepository>(),
     ),
   );
   getIt.registerFactory(
@@ -247,6 +338,14 @@ Future<void> setupLocator() async {
       create: getIt<CreateProductionUseCase>(),
       update: getIt<UpdateProductionUseCase>(),
       delete: getIt<DeleteProductionUseCase>(),
+    ),
+  );
+  getIt.registerFactory(
+    () => IssueBloc(
+      getList: getIt<GetIssueListUseCase>(),
+      create: getIt<CreateIssueUseCase>(),
+      update: getIt<UpdateIssueUseCase>(),
+      delete: getIt<DeleteIssueUseCase>(),
     ),
   );
   getIt.registerFactory(

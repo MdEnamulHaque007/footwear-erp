@@ -1,33 +1,72 @@
 # Footwear ERP System
 
-A Flutter web application scaffold organized around Clean Architecture.
+Production management software for footwear manufacturing.
 
-## Structure
+## Tech Stack
 
-- `core/`: constants, utilities, theme, shared widgets, and services
-- `data/`: models, repositories, and remote/local data sources
-- `domain/`: entities, repository contracts, and use cases
-- `presentation/`: BLoCs, screens, widgets, and GoRouter routes
-- `injection/`: GetIt dependency registration
+- Flutter (web and mobile)
+- Firebase Authentication, Firestore, and Storage
+- BLoC and GetIt
+- GoRouter
+- Clean Architecture
 
-The default route currently renders the dashboard shell. Feature files are intentionally lightweight contracts ready for the Firebase/authentication implementation.
+## Features
 
-## Firebase setup
+- Authentication with role-based access
+- Master LC management
+- Multi-line Purchase Orders with validation
+- PO-driven Cutting with detail view
+- Admin user, role, and permission management
+- Colorful dashboard and module navigation
 
-Firebase project credentials are environment-specific and are not committed to this repository. Configure the target project with FlutterFire, which creates `lib/firebase_options.dart`:
+## Quick Start
 
-```text
+### Prerequisites
+
+- Flutter 3.41+
+- Node.js 18+
+- Firebase CLI 13+
+
+### Setup
+
+```bash
+git clone https://github.com/MdEnamulHaque007/footwear-erp.git
+cd footwear-erp
+flutter pub get
 flutterfire configure
+flutter run -d chrome
 ```
 
-Then update the bootstrap in `lib/main.dart` to pass `DefaultFirebaseOptions.currentPlatform` to `Firebase.initializeApp` when the generated options file is available. Android also needs the generated `android/app/google-services.json`; iOS and web require their platform-specific Firebase configuration.
+Configure Firebase Authentication and Firestore for the target project before
+running the application. Platform-specific credentials such as
+`google-services.json` and `GoogleService-Info.plist` are intentionally
+gitignored.
+
+## Project Structure
+
+```text
+lib/
+├── core/          # Constants, theme, utilities, and services
+├── data/          # Models and repositories
+├── domain/        # Entities and use cases
+├── presentation/  # BLoCs, screens, widgets, and routes
+└── injection/     # GetIt dependency registration
+```
 
 ## Development
 
-```text
+```bash
 flutter pub get
-dart analyze
+flutter analyze
 flutter test
 ```
 
-Run `dart run build_runner build` after adding JSON/Hive model annotations.
+## Security
+
+Firestore rules and role-based access control are included. Do not commit
+environment files, service-account keys, platform Firebase credential files, or
+signing keys.
+
+## Contact
+
+[Md Enamul Haque](https://github.com/MdEnamulHaque007)

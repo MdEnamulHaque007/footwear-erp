@@ -6,15 +6,20 @@ import '../../domain/repositories/i_master_lc_repository.dart';
 import '../models/master_lc/master_lc_model.dart';
 
 class MasterLCRepository implements IMasterLCRepository {
-  MasterLCRepository({FirebaseFirestore? firestore}) : _db = firestore ?? FirebaseFirestore.instance;
+  MasterLCRepository({FirebaseFirestore? firestore})
+    : _db = firestore ?? FirebaseFirestore.instance;
   final FirebaseFirestore _db;
-  CollectionReference<Map<String, dynamic>> get _collection => _db.collection(AppConstants.collectionMasterLC);
+  CollectionReference<Map<String, dynamic>> get _collection =>
+      _db.collection(AppConstants.collectionMasterLC);
 
   /// Keyset-pagination cursor: reset on page 0, advanced to the last doc read.
   DocumentSnapshot<Map<String, dynamic>>? _lastDoc;
 
   @override
-  Future<Either<String, List<MasterLCModel>>> getMasterLCList({int page = 0, int limit = 20}) async {
+  Future<Either<String, List<MasterLCModel>>> getMasterLCList({
+    int page = 0,
+    int limit = 20,
+  }) async {
     try {
       if (page == 0) _lastDoc = null;
       var query = _collection.orderBy('sl');
@@ -39,8 +44,24 @@ class MasterLCRepository implements IMasterLCRepository {
   @override
   Future<Either<String, MasterLCEntity?>> byTag(String tag) async {
     try {
-      final s = await _collection.where('tagNo', isEqualTo: tag).limit(1).get(); 
-      return Right(s.docs.isEmpty ? null : MasterLCModel.fromSnapshot(s.docs.first));
+      final s = await _collection.where('tagNo', isEqualTo: tag).limit(1).get();
+      return Right(
+        s.docs.isEmpty ? null : MasterLCModel.fromSnapshot(s.docs.first),
+      );
+    } on FirebaseException catch (e) {
+      return Left('Database error: ${e.message}');
+    } catch (e) {
+      return const Left('An unexpected error occurred');
+    }
+  }
+
+  @override
+  Future<Either<String, MasterLCEntity?>> byId(String id) async {
+    try {
+      final snapshot = await _collection.doc(id).get();
+      return Right(
+        snapshot.exists ? MasterLCModel.fromSnapshot(snapshot) : null,
+      );
     } on FirebaseException catch (e) {
       return Left('Database error: ${e.message}');
     } catch (e) {
@@ -66,18 +87,22 @@ class MasterLCRepository implements IMasterLCRepository {
   @override
   Future<Either<String, void>> update(MasterLCEntity item) async {
     try {
-      await _collection.doc(item.id).update(MasterLCModel(
-        sl: item.sl, 
-        masterLcDate: item.masterLcDate, 
-        tagNo: item.tagNo, 
-        project: item.project, 
-        company: item.company, 
-        scNo: item.scNo, 
-        lcNo: item.lcNo, 
-        ttNo: item.ttNo, 
-        masterLcQuantity: item.masterLcQuantity, 
-        masterLcValue: item.masterLcValue
-      ).toFirestore());
+      await _collection
+          .doc(item.id)
+          .update(
+            MasterLCModel(
+              sl: item.sl,
+              masterLcDate: item.masterLcDate,
+              tagNo: item.tagNo,
+              project: item.project,
+              company: item.company,
+              scNo: item.scNo,
+              lcNo: item.lcNo,
+              ttNo: item.ttNo,
+              masterLcQuantity: item.masterLcQuantity,
+              masterLcValue: item.masterLcValue,
+            ).toFirestore(),
+          );
       return const Right(null);
     } on FirebaseException catch (e) {
       return Left('Failed to update: ${e.message}');

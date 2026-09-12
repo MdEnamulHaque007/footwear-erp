@@ -6,10 +6,10 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
+import 'firebase_options.dart';
 import 'injection/dependency_injection.dart';
 import 'presentation/blocs/auth/auth_bloc.dart';
 import 'presentation/routes/app_routes.dart';
-import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

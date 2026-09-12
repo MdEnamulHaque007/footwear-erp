@@ -93,4 +93,22 @@ class ProductionRepository implements IProductionRepository {
       return const Left('An unexpected error occurred');
     }
   }
+
+  @override
+  Future<int> getCumulativeProductionQuantity({
+    required String poTagNo,
+    required DateTime upToDate,
+  }) async {
+    final snapshot = await _collection
+        .where('poTagNo', isEqualTo: poTagNo)
+        .where(
+          'productionDate',
+          isLessThanOrEqualTo: Timestamp.fromDate(upToDate),
+        )
+        .get();
+    return snapshot.docs.fold<int>(
+      0,
+      (total, doc) => total + ((doc.data()['quantity'] as num?) ?? 0).toInt(),
+    );
+  }
 }

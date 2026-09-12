@@ -3,36 +3,53 @@ import 'package:flutter/foundation.dart';
 import '../../domain/entities/user_entity.dart';
 
 /// Development-only authentication shortcuts (skip button + auto-login).
-///
-/// Everything here is gated by [kDebugMode], so it is tree-shaken out of
-/// profile/release builds and can never activate in production.
-///
-/// IMPORTANT: [devUser] is a *client-side mock*. It does NOT create a Firebase
-/// Auth session, so any Firestore read/write that requires authentication will
-/// be denied by the security rules (`request.auth` is null). This is fine for
-/// navigating the UI without logging in, but data-backed screens (Master LC,
-/// PO, user/role management, dashboard stats) will come back empty or with a
-/// permission error. Use real credentials when you need real data.
 class DevConfig {
   const DevConfig._();
 
-  /// Master switch: dev auth shortcuts only exist in debug builds.
   static bool get enabled => kDebugMode;
 
-  /// When true (debug only), the app auto-authenticates as [devUser] on
-  /// startup so the login screen is skipped. Set to `false` to exercise the
-  /// real login flow in debug while still keeping the "Skip login" button.
   static const bool autoLogin = true;
 
-  /// The in-memory developer account used by auto-login and the skip button.
-  /// `role: 'admin'` unlocks every route (including `/admin`) during dev.
+  /// ✅ FIXED: Admin permissions added for all modules
   static const UserEntity devUser = UserEntity(
     uid: 'dev-user',
     email: 'dev@footwear.local',
     displayName: 'Developer',
     role: 'admin',
-    permissions: <String, bool>{},
     isEmailVerified: true,
     isActive: true,
+    permissions: {
+      'master_lc': {'view': true, 'create': true, 'edit': true, 'delete': true},
+      'purchase_order': {
+        'view': true,
+        'create': true,
+        'edit': true,
+        'delete': true,
+      },
+      'cutting': {'view': true, 'create': true, 'edit': true, 'delete': true},
+      'sewing': {'view': true, 'create': true, 'edit': true, 'delete': true},
+      'production': {
+        'view': true,
+        'create': true,
+        'edit': true,
+        'delete': true,
+      },
+      'issue': {'view': true, 'create': true, 'edit': true, 'delete': true},
+      'export': {'view': true, 'create': true, 'edit': true, 'delete': true},
+      'user_management': {
+        'view': true,
+        'create': true,
+        'edit': true,
+        'delete': true,
+      },
+      'role_management': {
+        'view': true,
+        'create': true,
+        'edit': true,
+        'delete': true,
+      },
+      'audit_log': {'view': true, 'create': true, 'edit': true, 'delete': true},
+      'reports': {'view': true, 'create': true, 'edit': true, 'delete': true},
+    },
   );
 }

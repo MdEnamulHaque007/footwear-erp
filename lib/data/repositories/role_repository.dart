@@ -15,6 +15,7 @@ class RoleRepository implements IRoleRepository {
     try {
       final snapshot = await _firestore
           .collection(AppConstants.collectionRoles)
+          .limit(20)
           .get();
       final roles = snapshot.docs.map(RoleModel.fromFirestore).toList();
       return Right(roles);

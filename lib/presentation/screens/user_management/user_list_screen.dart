@@ -38,7 +38,7 @@ class UserListScreen extends StatelessWidget {
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const UserStatusWidget(active: true),
+                    UserStatusWidget(active: user.isActive),
                     IconButton(
                       icon: const Icon(Icons.delete),
                       onPressed: () => context.read<UserManagementBloc>().add(

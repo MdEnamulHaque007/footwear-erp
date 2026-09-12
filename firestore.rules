@@ -1,118 +1,53 @@
 rules_version = '2';
-
-// Footwear ERP — Firestore Security Rules (P0 hardening)
-//
-// Fixes applied (see AUDIT_REPORT.md §4):
-//  * HIGH-1: user-doc creation no longer allows client-set privilege fields
-//            (role forced to 'viewer', permissions forced empty).
-//  * HIGH-2: the old catch-all /{collection}/{id} block widened access to
-//            users/roles/audit_logs. Replaced with an explicit allow-list of
-//            business collections only.
-//  * MEDIUM-3: collection-name -> permission-module mapping added, so plural
-//            Firestore collections ('cuttings') resolve to the singular module
-//            keys the app actually writes ('cutting').
-//  * Deactivated accounts (users/{uid}.isActive == false) lose all access.
-//  * audit_logs are immutable (create-only).
 service cloud.firestore {
   match /databases/{database}/documents {
-
     function signedIn() {
       return request.auth != null;
     }
 
-    function userData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
-    // Missing 'isActive' counts as active (legacy docs); explicit false denies.
-    function isActive() {
+    function activeUser() {
       return signedIn()
-        && (!('isActive' in userData()) || userData().isActive == true);
+          && get(/databases/$(database)/documents/users/$(request.auth.uid))
+              .data.isActive == true;
     }
 
-    function isAdmin() {
-      return isActive() && userData().role == 'admin';
+    function admin() {
+      return activeUser()
+          && get(/databases/$(database)/documents/users/$(request.auth.uid))
+              .data.role == 'admin';
     }
 
-    // Maps a Firestore collection name to the permission module key used by
-    // the app (AppConstants.permissionModules uses singular keys).
-    function moduleFor(collection) {
-      return collection == 'master_lc' ? 'master_lc'
-        : collection == 'purchase_orders' ? 'purchase_order'
-        : collection == 'cuttings' ? 'cutting'
-        : collection == 'sewings' ? 'sewing'
-        : collection == 'productions' ? 'production'
-        : collection == 'issues' ? 'issue'
-        : collection == 'exports' ? 'export'
-        : '';
+    match /users/{userId} {
+      allow create: if signedIn() && request.auth.uid == userId;
+      allow read: if activeUser() && (request.auth.uid == userId || admin());
+      allow update: if admin()
+          || (activeUser()
+              && request.auth.uid == userId
+              && request.resource.data.diff(resource.data).affectedKeys()
+                  .hasOnly(['lastLogin']));
+      allow delete: if admin();
     }
 
-    function isBusinessCollection(collection) {
-      return collection in [
-        'master_lc',
-        'purchase_orders',
-        'cuttings',
-        'sewings',
-        'productions',
-        'issues',
-        'exports',
-      ];
-    }
-
-    function hasPermission(module, action) {
-      return isActive()
-        && (isAdmin() || userData().permissions[module][action] == true);
-    }
-
-    // ---- Users -------------------------------------------------------------
-    match /users/{uid} {
-      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
-
-      // HIGH-1 fix: a new account may only create its OWN profile, and the
-      // profile cannot carry privileges: role locked to 'viewer',
-      // permissions locked to empty, isActive locked to true.
-      allow create: if signedIn()
-        && request.auth.uid == uid
-        && request.resource.data.role == 'viewer'
-        && (!('permissions' in request.resource.data)
-            || request.resource.data.permissions.size() == 0)
-        && request.resource.data.isActive == true
-        && request.resource.data.displayName is string
-        && request.resource.data.email is string;
-
-      // Self-service updates limited to lastLogin; admins unrestricted.
-      allow update: if isAdmin() || (
-        signedIn() && request.auth.uid == uid &&
-        request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['lastLogin'])
-      );
-
-      allow delete: if isAdmin();
-    }
-
-    // ---- Roles (admin-only) --------------------------------------------------
     match /roles/{roleId} {
-      allow read, write: if isAdmin();
+      allow read, write: if admin();
     }
 
-    // ---- Audit logs (append-only) --------------------------------------------
-    match /audit_logs/{id} {
-      allow read: if hasPermission('audit_log', 'view');
-      allow create: if isActive();
-      // Integrity: nobody may modify or delete logs from the client.
-      allow update, delete: if false;
+    match /audit_logs/{logId} {
+      allow create: if activeUser();
+      allow read, update, delete: if admin();
     }
 
-    // ---- Business collections (explicit allow-list — HIGH-2 fix) --------------
-    match /{collection}/{id} {
-      allow read: if isBusinessCollection(collection)
-        && hasPermission(moduleFor(collection), 'view');
-      allow create: if isBusinessCollection(collection)
-        && hasPermission(moduleFor(collection), 'create');
-      allow update: if isBusinessCollection(collection)
-        && hasPermission(moduleFor(collection), 'edit');
-      allow delete: if isBusinessCollection(collection)
-        && hasPermission(moduleFor(collection), 'delete');
+    match /{collection}/{documentId} {
+      allow read, write: if activeUser()
+          && collection in [
+            'master_lc',
+            'purchase_orders',
+            'cuttings',
+            'sewings',
+            'productions',
+            'issues',
+            'exports'
+          ];
     }
   }
 }

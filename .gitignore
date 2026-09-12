@@ -43,3 +43,19 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Firebase and local credentials
+.env
+google-services.json
+GoogleService-Info.plist
+serviceAccountKey.json
+firebase-debug.log
+.firebase/
+
+# Android signing
+*.jks
+*.keystore
+key.properties
+
+# Local IDE settings
+.vscode/

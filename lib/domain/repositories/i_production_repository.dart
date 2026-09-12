@@ -11,4 +11,8 @@ abstract interface class IProductionRepository {
   Future<Either<String, void>> createProduction(ProductionEntity item);
   Future<Either<String, void>> update(ProductionEntity item);
   Future<Either<String, void>> delete(String id);
+  Future<int> getCumulativeProductionQuantity({
+    required String poTagNo,
+    required DateTime upToDate,
+  });
 }

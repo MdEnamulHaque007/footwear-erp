@@ -31,7 +31,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     _subscription = repository.authStateChanges.listen(
       (user) => add(AuthStateChanged(user)),
     );
-    on<AuthStarted>((event, emit) => add(CheckAuthStatus()));
+    on<AuthStarted>((event, emit) async => add(CheckAuthStatus()));
     on<CheckAuthStatus>(_onCheckStatus);
     on<AuthStateChanged>((event, emit) {
       if (event.user != null) {
@@ -70,6 +70,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(AuthLoading());
     try {
       final user = await _checkStatus();
+      if (emit.isDone) return;
       if (user != null) {
         _devSession = false;
         emit(Authenticated(user));
@@ -81,6 +82,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       }
       emit(Unauthenticated());
     } catch (error) {
+      if (emit.isDone) return;
       // In debug with auto-login on, fall back to the dev user even if the
       // auth check throws (e.g. Firebase offline / misconfigured).
       if (_devAutoLoginEnabled) {
@@ -109,8 +111,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _onLogin(LoginRequested event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
     try {
-      emit(Authenticated(await _login(event.email, event.password)));
+    final user = await _login(event.email, event.password);
+    if (emit.isDone) return;
+    emit(Authenticated(user));
     } catch (error) {
+    if (emit.isDone) return;
       emit(AuthError(_message(error)));
     }
   }
@@ -122,8 +127,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(AuthLoading());
     try {
       await _register(event.name, event.email, event.password);
+      if (emit.isDone) return;
       emit(RegisterSuccess());
     } catch (error) {
+      if (emit.isDone) return;
       emit(AuthError(_message(error)));
     }
   }
@@ -133,8 +140,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     try {
       _devSession = false;
       await _logout();
+      if (emit.isDone) return;
       emit(Unauthenticated());
     } catch (error) {
+      if (emit.isDone) return;
       emit(AuthError(_message(error)));
     }
   }
@@ -146,8 +155,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(AuthLoading());
     try {
       await _resetPassword(event.email);
+      if (emit.isDone) return;
       emit(ResetPasswordSent());
     } catch (error) {
+      if (emit.isDone) return;
       emit(AuthError(_message(error)));
     }
   }

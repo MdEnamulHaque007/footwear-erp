@@ -2,7 +2,11 @@ import '../../../domain/entities/master_lc_entity.dart';
 
 sealed class MasterLCEvent {}
 
-class LoadMasterLCList extends MasterLCEvent {}
+class LoadMasterLCList extends MasterLCEvent {
+  LoadMasterLCList({this.limit = 20});
+  final int limit;
+}
+
 class LoadMoreMasterLC extends MasterLCEvent {}
 
 class MasterLCUpdated extends MasterLCEvent {
@@ -23,4 +27,10 @@ class UpdateMasterLC extends MasterLCEvent {
 class DeleteMasterLC extends MasterLCEvent {
   DeleteMasterLC(this.id);
   final String id;
+}
+
+class LoadMasterLCDetail extends MasterLCEvent {
+  LoadMasterLCDetail(this.id, {this.initialItem});
+  final String id;
+  final MasterLCEntity? initialItem;
 }

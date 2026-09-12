@@ -19,6 +19,7 @@ class SewingBloc extends Bloc<SewingEvent, SewingState> {
       _hasMore = true;
       emit(SewingLoading());
       final result = await getList(page: _currentPage, limit: 20);
+      if (emit.isDone) return;
       result.fold((error) => emit(SewingError(error)), (items) {
         _items = items;
         _hasMore = items.length == 20;
@@ -27,19 +28,26 @@ class SewingBloc extends Bloc<SewingEvent, SewingState> {
     });
 
     on<LoadMoreSewingList>((event, emit) async {
-      if (!_hasMore) return;
+      if (!_hasMore || _isLoadingMore) return;
+      _isLoadingMore = true;
       _currentPage++;
-      final result = await getList(page: _currentPage, limit: 20);
-      result.fold((error) => emit(SewingError(error)), (items) {
-        _items.addAll(items);
-        _hasMore = items.length == 20;
-        emit(SewingLoaded(List.from(_items)));
-      });
+      try {
+        final result = await getList(page: _currentPage, limit: 20);
+        if (emit.isDone) return;
+        result.fold((error) => emit(SewingError(error)), (items) {
+          _items.addAll(items);
+          _hasMore = items.length == 20;
+          emit(SewingLoaded(List.from(_items)));
+        });
+      } finally {
+        _isLoadingMore = false;
+      }
     });
 
     on<CreateSewing>((event, emit) async {
       emit(SewingLoading());
       final result = await create(event.item);
+      if (emit.isDone) return;
       result.fold((error) => emit(SewingError(error)), (_) {
         emit(SewingSuccess('Sewing record created'));
         add(LoadSewingList());
@@ -49,6 +57,7 @@ class SewingBloc extends Bloc<SewingEvent, SewingState> {
     on<UpdateSewing>((event, emit) async {
       emit(SewingLoading());
       final result = await update(event.item);
+      if (emit.isDone) return;
       result.fold((error) => emit(SewingError(error)), (_) {
         emit(SewingSuccess('Sewing record updated'));
         add(LoadSewingList());
@@ -58,6 +67,7 @@ class SewingBloc extends Bloc<SewingEvent, SewingState> {
     on<DeleteSewing>((event, emit) async {
       emit(SewingLoading());
       final result = await delete(event.id);
+      if (emit.isDone) return;
       result.fold((error) => emit(SewingError(error)), (_) {
         emit(SewingSuccess('Sewing record deleted'));
         add(LoadSewingList());
@@ -72,5 +82,6 @@ class SewingBloc extends Bloc<SewingEvent, SewingState> {
 
   int _currentPage = 0;
   bool _hasMore = true;
+  bool _isLoadingMore = false;
   List<SewingEntity> _items = [];
 }

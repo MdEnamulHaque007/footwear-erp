@@ -16,6 +16,7 @@ class RoleManagementBloc extends Bloc<RoleManagementEvent, RoleManagementState> 
     on<LoadRoles>((event, emit) async {
       emit(RoleManagementLoading());
       final result = await roles();
+      if (emit.isDone) return;
       result.fold(
         (error) => emit(RoleManagementError(error)),
         (items) => emit(RoleManagementLoaded(items)),
@@ -25,6 +26,7 @@ class RoleManagementBloc extends Bloc<RoleManagementEvent, RoleManagementState> 
     on<CreateRole>((event, emit) async {
       emit(RoleManagementLoading());
       final result = await createRole(event.name, event.permissions);
+      if (emit.isDone) return;
       result.fold(
         (error) => emit(RoleManagementError(error)),
         (_) {
@@ -37,6 +39,7 @@ class RoleManagementBloc extends Bloc<RoleManagementEvent, RoleManagementState> 
     on<UpdateRolePermissions>((event, emit) async {
       emit(RoleManagementLoading());
       final result = await updatePermissions(event.roleId, event.permissions);
+      if (emit.isDone) return;
       result.fold(
         (error) => emit(RoleManagementError(error)),
         (_) {
@@ -49,6 +52,7 @@ class RoleManagementBloc extends Bloc<RoleManagementEvent, RoleManagementState> 
     on<DeleteRole>((event, emit) async {
       emit(RoleManagementLoading());
       final result = await deleteRole(event.roleId);
+      if (emit.isDone) return;
       result.fold(
         (error) => emit(RoleManagementError(error)),
         (_) {

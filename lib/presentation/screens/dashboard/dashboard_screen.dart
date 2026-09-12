@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'dart:async';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/color_palette.dart';
@@ -10,8 +11,38 @@ import '../../blocs/auth/auth_bloc.dart';
 import '../../blocs/auth/auth_state.dart';
 import '../../widgets/app_drawer.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  late DateTime _currentDateTime;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentDateTime = DateTime.now();
+    _timer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _updateDateTime(),
+    );
+  }
+
+  void _updateDateTime() {
+    if (!mounted) return;
+    setState(() => _currentDateTime = DateTime.now());
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _timer = null;
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +54,7 @@ class DashboardScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          _welcome(context, user),
+          _welcome(context, user, _currentDateTime),
           const SizedBox(height: 20),
           Text('Quick Access', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 12),
@@ -124,8 +155,11 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _welcome(BuildContext context, UserEntity? user) {
-    final today = DateTime.now();
+  Widget _welcome(
+    BuildContext context,
+    UserEntity? user,
+    DateTime currentDateTime,
+  ) {
     return Card(
       color: ColorPalette.primary,
       child: Padding(
@@ -149,11 +183,15 @@ class DashboardScreen extends StatelessWidget {
                 children: [
                   const Icon(Icons.calendar_today, size: 16),
                   const SizedBox(width: 6),
-                  Text(DateFormat('dd/MM/yyyy', 'en_US').format(today)),
+                  Text(
+                    DateFormat('dd/MM/yyyy', 'en_US').format(currentDateTime),
+                  ),
                   const SizedBox(width: 16),
                   const Icon(Icons.access_time, size: 16),
                   const SizedBox(width: 6),
-                  Text(DateFormat('hh:mm:ss a', 'en_US').format(today)),
+                  Text(
+                    DateFormat('hh:mm:ss a', 'en_US').format(currentDateTime),
+                  ),
                 ],
               ),
             ],

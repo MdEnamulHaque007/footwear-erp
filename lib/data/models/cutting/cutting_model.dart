@@ -4,7 +4,6 @@ import '../../../domain/entities/cutting_entity.dart';
 class CuttingModel extends CuttingEntity {
   const CuttingModel({
     super.id,
-    required super.sl,
     required super.voucherNo,
     required super.cuttingDate,
     super.poNo,
@@ -20,11 +19,15 @@ class CuttingModel extends CuttingEntity {
     super.factoryName,
     required super.entryPerson,
     super.remarks,
+    super.availableQuantity,
+    super.source,
+    super.syncStatus,
+    super.createdAt,
+    super.updatedAt,
   });
 
   factory CuttingModel.fromEntity(CuttingEntity e) => CuttingModel(
     id: e.id,
-    sl: e.sl,
     voucherNo: e.voucherNo,
     cuttingDate: e.cuttingDate,
     poNo: e.poNo,
@@ -40,35 +43,46 @@ class CuttingModel extends CuttingEntity {
     factoryName: e.factoryName,
     entryPerson: e.entryPerson,
     remarks: e.remarks,
+    availableQuantity: e.availableQuantity,
+    source: e.source,
+    syncStatus: e.syncStatus,
+    createdAt: e.createdAt,
+    updatedAt: e.updatedAt,
   );
 
+  /// Reads a Firestore document defensively: legacy records may store numbers as
+  /// strings, dates as `Timestamp` / `DateTime` / ISO strings and may only carry
+  /// the legacy `poTagNo` + `quantity` fields.
   factory CuttingModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> s) {
     final d = s.data() ?? {};
+    final tagNo = _string(d['tagNo'] ?? d['poTagNo']);
+    final cuttingQuantity = _int(d['cuttingQuantity'] ?? d['quantity']);
     return CuttingModel(
       id: s.id,
-      sl: d['sl'] as int? ?? 0,
-      voucherNo: d['voucherNo'] as String? ?? '',
+      voucherNo: _string(d['voucherNo']),
       cuttingDate: _date(d['cuttingDate']) ?? DateTime.now(),
-      poNo: d['poNo'] as String? ?? '',
-      tagNo: d['tagNo'] as String? ?? d['poTagNo'] as String? ?? '',
-      company: d['company'] as String? ?? '',
-      project: d['project'] as String? ?? '',
-      article: d['article'] as String? ?? '',
-      color: d['color'] as String? ?? '',
-      poQuantity: (d['poQuantity'] as num? ?? 0).toInt(),
-      cuttingQuantity:
-          (d['cuttingQuantity'] as num? ?? d['quantity'] as num? ?? 0).toInt(),
-      poTagNo: d['poTagNo'] as String? ?? d['tagNo'] as String? ?? '',
-      quantity: (d['quantity'] as num? ?? d['cuttingQuantity'] as num? ?? 0)
-          .toInt(),
-      factoryName: d['factoryName'] as String? ?? '',
-      entryPerson: d['entryPerson'] as String? ?? '',
-      remarks: d['remarks'] as String? ?? '',
+      poNo: _string(d['poNo']),
+      tagNo: tagNo,
+      company: _string(d['company']),
+      project: _string(d['project']),
+      article: _string(d['article']),
+      color: _string(d['color']),
+      poQuantity: _int(d['poQuantity']),
+      cuttingQuantity: cuttingQuantity,
+      poTagNo: _string(d['poTagNo'] ?? tagNo),
+      quantity: cuttingQuantity,
+      factoryName: _string(d['factoryName']),
+      entryPerson: _string(d['entryPerson']),
+      remarks: _string(d['remarks']),
+      availableQuantity: _int(d['availableQuantity']),
+      source: _nullableString(d['source']),
+      syncStatus: _nullableString(d['syncStatus']),
+      createdAt: _date(d['createdAt']),
+      updatedAt: _date(d['updatedAt']),
     );
   }
 
   Map<String, dynamic> toFirestore() => {
-    'sl': sl,
     'voucherNo': voucherNo,
     'cuttingDate': Timestamp.fromDate(cuttingDate),
     'poNo': poNo,
@@ -80,15 +94,58 @@ class CuttingModel extends CuttingEntity {
     'poQuantity': poQuantity,
     'cuttingQuantity': cuttingQuantity,
     'poTagNo': poTagNo,
-    'quantity': quantity,
+    'quantity': cuttingQuantity,
     'factoryName': factoryName,
     'entryPerson': entryPerson,
     'remarks': remarks,
+    'availableQuantity': availableQuantity,
+    'createdAt': createdAt == null
+        ? Timestamp.now()
+        : Timestamp.fromDate(createdAt!),
+    'updatedAt': Timestamp.now(),
+    'source': source ?? 'manual',
+    'syncStatus': syncStatus ?? 'synced',
   };
 
-  static DateTime? _date(Object? v) => v is Timestamp
-      ? v.toDate()
-      : v is DateTime
-      ? v
-      : null;
+  CuttingEntity toEntity() => CuttingEntity(
+    id: id,
+    voucherNo: voucherNo,
+    cuttingDate: cuttingDate,
+    poNo: poNo,
+    tagNo: tagNo,
+    company: company,
+    project: project,
+    article: article,
+    color: color,
+    poQuantity: poQuantity,
+    cuttingQuantity: cuttingQuantity,
+    poTagNo: poTagNo,
+    quantity: quantity,
+    factoryName: factoryName,
+    entryPerson: entryPerson,
+    remarks: remarks,
+    availableQuantity: availableQuantity,
+    source: source,
+    syncStatus: syncStatus,
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+  );
+
+  static String _string(Object? value) => value?.toString().trim() ?? '';
+
+  static int _int(Object? value) => value is num
+      ? value.toInt()
+      : int.tryParse(value?.toString().trim() ?? '') ?? 0;
+
+  static String? _nullableString(Object? value) {
+    final text = _string(value);
+    return text.isEmpty ? null : text;
+  }
+
+  static DateTime? _date(Object? value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
+    return null;
+  }
 }

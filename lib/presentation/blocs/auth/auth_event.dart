@@ -29,6 +29,11 @@ class ResetPasswordRequested extends AuthEvent {
   final String email;
 }
 
+class AuthProfileUpdated extends AuthEvent {
+  AuthProfileUpdated(this.user);
+  final UserEntity user;
+}
+
 class AuthStateChanged extends AuthEvent {
   AuthStateChanged(this.user);
   final UserEntity? user;

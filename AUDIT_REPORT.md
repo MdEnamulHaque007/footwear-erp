@@ -1,37 +1,57 @@
 # Footwear ERP — Project Audit Report
 
-**Date:** 2026-08-22
-**Auditor:** Claude Code (automated code audit)
+**Date:** 2026-09-12
+**Auditor:** Cline (automated code audit)
 **Project:** `E:\footwear` — Flutter **web** application, Clean Architecture + Firebase
 **Toolchain verified:** Flutter 3.41.6 (stable) · Dart 3.11.4
+**Supersedes:** the 2026-08-22 audit (see §12 for what changed)
 
 ---
 
 ## 1. Executive summary
 
-This repository is an **early-stage architectural scaffold**, not a working ERP. It has a clean, professional folder structure and one genuinely functional vertical slice (authentication + a handful of CRUD screens wired to Firestore), but roughly a third of its source files are empty placeholders and most of its declared capabilities do not exist yet.
+This is a **working, analyzable Flutter application with a solid skeleton and two fully
+fleshed-out vertical slices**, but it is still **mid-build**: roughly a quarter of the
+`lib/` tree is unreferenced (dead) code, about half of the runtime dependencies are
+unused, several business rules required by the domain (the cut → sew → produce → issue
+quantity chain) are only partially enforced, and the **Firestore security rules still
+allow self-service privilege escalation**.
 
-**Overall maturity: ~20–25% implemented.** The skeleton is sound; the flesh is mostly missing.
+The good news: `flutter analyze` is **completely clean**, all **26 tests pass**, git is in
+a clean, fully-committed state, and the Master LC / Purchase Order modules are genuinely
+complete (entity → model → repo → use cases → BLoC → screens → routes → DI).
 
 | Dimension | Verdict |
 |---|---|
-| Builds & analyzes | ✅ Clean — `dart analyze` = 0 errors (1 warning, 12 info lints) |
-| Runs | ✅ Dev server serves at `http://localhost:8080`; app bootstraps, no console errors |
-| Architecture | 🟡 Good layering, but **applied inconsistently** |
-| Feature completeness | 🔴 ~1 of ~9 business modules actually implemented |
-| **Security (Firestore rules)** | 🔴 **Privilege-escalation and access-widening flaws — fix before any real data** |
-| Dependency hygiene | 🔴 ~20 of 24 major deps unused; 10 fake "generated" files |
-| Testing | 🔴 One trivial test; effectively no coverage |
+| Builds & analyzes | ✅ Clean — `flutter analyze` → **No issues found** (223 files, 23.3 s) |
+| Tests | 🟡 26 tests, **all pass** — but coverage is thin and misses the bug classes the project already hit |
+| Architecture | 🟡 Clean layering and consistent patterns; a few convention splits remain |
+| Feature completeness | 🟡 Master LC + PO complete; Cutting/Sewing/Production/Issue functional but shallow; Export/Reports/Audit Log are stubs or absent |
+| **Security (Firestore rules)** | 🔴 **Privilege escalation still open** — fix before any real data |
+| Business-rule correctness | 🔴 Quantity-chain validation is bypassable on create (over-allocation) and missing entirely on update |
+| Dead code | 🟡 **62 of 223 files (28%) never imported** |
+| Dependency hygiene | 🔴 ~20 of 24 runtime deps unused (2 of them "used" only by dead files) |
+| Dev-only backdoor | 🟠 Debug builds auto-login as a hardcoded **admin** with full permissions |
+| CI | 🔴 None |
 
-**Top priority:** the Firestore security rules contain a **privilege-escalation vulnerability** (§4). Address that before this project touches production data.
+**Top priority:** close the privilege-escalation hole in [firestore.rules](firestore.rules)
+(§4), then fix the quantity-chain validation (§5) — those are the two issues that turn
+into real-world losses (unauthorised admin, and over-production against a PO).
 
 ---
 
 ## 2. Scope & method
 
-Examined the full `lib/` tree (253 hand-written `.dart` files), `firestore.rules`, `pubspec.yaml`/`.lock`, `analysis_options.yaml`, `.gitignore`, and `test/`. Ran `dart analyze` and launched the app via a Flutter web dev server to confirm it boots. Findings below cite `file:line` and are verified against the source, not inferred.
-
-> Note: this working copy is **not a git repository** (no `.git`), so there is no version-control history or safety net here.
+- Read the full `lib/` tree (223 hand-written `.dart` files), `firestore.rules`,
+  `firestore.indexes.json`, `firebase.json`, `.firebaserc`, `pubspec.yaml`,
+  `analysis_options.yaml`, `.gitignore`, `test/`, and the platform folders' config.
+- Ran, and report the raw results of:
+  - `flutter --version` → 3.41.6 / Dart 3.11.4
+  - `flutter analyze --no-pub` → **No issues found! (ran in 23.3s)**
+  - `flutter test` → **26 tests, All tests passed!**
+  - `git status` / `git ls-files` → clean tree, 365 tracked files, HEAD `0d82bc3`
+- Cross-checked imports, route provisioning, DI registrations, Firestore field names,
+  and index coverage by static analysis of the source (not inferred).
 
 ---
 
@@ -39,164 +59,443 @@ Examined the full `lib/` tree (253 hand-written `.dart` files), `firestore.rules
 
 | Metric | Value |
 |---|---|
-| Hand-written `.dart` files (excl. generated) | 253 |
-| Total hand-written LOC | ~3,650 (avg **~14 lines/file**) |
-| One-line stub files (`class X {}` / empty) | **54** |
-| Files ≤ 3 lines | **86 (~34% of all files)** |
-| `.g.dart` "generated" files | 10 — **all fake placeholders** (see §6.3) |
-| Major deps declared vs. imported anywhere | 24 declared / **~4 used** |
-| Tests | 1 (trivial) |
-| `dart analyze` | 0 errors · 1 warning · 12 info |
+| Hand-written `.dart` files in `lib/` | **223** |
+| Total source size | ~359 KB |
+| Largest file | [po_form_screen.dart](lib/presentation/screens/purchase_order/po_form_screen.dart) (16 KB) |
+| `*.g.dart` generated files | **0** (the fake ones from the previous audit are gone) |
+| Files never imported anywhere | **62 (28%)** — ~18 KB |
+| `domain/usecases/*` classes | 53 |
+| Tests | 4 files / **26 tests** (all passing) |
+| `flutter analyze` | **0 issues** |
+| Runtime deps declared / actually imported | 24 / **12** |
+| CI configuration | **none** (`.github/` does not exist) |
 
 ---
 
-## 4. Security findings (Firestore rules) — highest priority
+## 4. Security findings
 
 File: [firestore.rules](firestore.rules)
 
-### 🔴 HIGH-1 — Privilege escalation via unrestricted user-document creation
+### 🔴 HIGH-1 — Privilege escalation via unrestricted user-document creation (STILL OPEN)
+```firestore
+match /users/{userId} {
+  allow create: if signedIn() && request.auth.uid == userId;   // line 21 — no content validation
 ```
-match /users/{uid} {
-  allow create: if signedIn() && request.auth.uid == uid;   // line 14 — NO field validation
-  ...
-}
+The create rule only asserts *who* is writing, never *what* is written. Because the
+`admin()` helper (line 14-18) trusts `users/{uid}.data.role`, any attacker who registers
+a Firebase account can then write their own `users/{uid}` document directly through the
+REST/SDK API with `role: "admin"` (and/or a fully-permissive `permissions` map) —
+completely bypassing [auth_remote_datasource.dart:43-58](lib/data/datasources/remote/auth_remote_datasource.dart),
+which is the only place the client sets `role: viewer`. They are then an admin
+permanently, in the UI *and* in the rules.
+
+**Fix (required before real data):** constrain the create payload, e.g.
+```firestore
+allow create: if signedIn()
+  && request.auth.uid == userId
+  && request.resource.data.role == 'viewer'
+  && request.resource.data.isActive == true
+  && request.resource.data.permissions == {};
 ```
-The create rule only checks that a user creates *their own* document — it places **no constraint on the document's contents**. Because `isAdmin()` (line 6) trusts `users/{uid}.data.role`, any newly-registered user can create their own profile with `role: 'admin'` (or a fully-permissive `permissions` map) using the Firebase SDK/REST directly, bypassing the client code in [auth_remote_datasource.dart:43](lib/data/datasources/remote/auth_remote_datasource.dart) that sets `role: viewer`. They are then an admin permanently. The `update` rule (lines 15–19) correctly restricts later edits to `lastLogin` only — but the hole is at **creation**, so no later escalation is even needed.
+and move all role/permission writes to an admin-only path (or Firebase custom claims).
 
-**Fix:** forbid client-set privilege fields at creation — e.g. require `request.resource.data.role == 'viewer'` and that `permissions` is empty/absent — and manage roles/permissions exclusively via an admin-only path, a Cloud Function, or Firebase Auth **custom claims** (which also removes the per-request `get()` cost below).
-
-### 🔴 HIGH-2 — Catch-all rule silently widens access to restricted collections
+### 🔴 HIGH-2 — No role/permission enforcement on business collections
+```firestore
+match /{collection}/{documentId} {
+  allow read, write: if activeUser() && collection in [ ... ];   // lines 40-51
 ```
-match /{collection}/{id} {           // lines 27–32
-  allow read:   if hasPermission(collection, 'view');
-  allow update: if hasPermission(collection, 'edit');
-  allow delete: if hasPermission(collection, 'delete');
-}
+Any *active* user — including a `viewer` whose `permissions` map is empty — can create,
+update and **delete** Master LC, PO, Cutting, Sewing, Production and Issue records.
+The client enforces permissions with `UserEntity.hasPermission()`
+([user_entity.dart:24-27](lib/domain/entities/user_entity.dart)) and
+[permission_utils.dart](lib/core/utils/permission_utils.dart), but the server does not,
+so the client-side check is cosmetic. Rule-level checks against the user's `permissions`
+map (or custom claims) are needed.
+
+### 🟡 MEDIUM-3 — No write-content validation, no App Check
+No rule validates document shape, field types, numeric ranges, foreign keys or
+ownership on write. For a quantity-driven ERP this pushes **all** data integrity onto
+client code — and §5 shows that client validation is itself incomplete. There is also no
+Firebase **App Check**, so the public web API key combined with HIGH-1/HIGH-2 is a
+remotely-exploitable surface.
+
+### 🟡 MEDIUM-4 — `audit_logs` is not immutable
+```firestore
+match /audit_logs/{logId} {
+  allow create: if activeUser();
+  allow read, update, delete: if admin();   // lines 35-38
 ```
-Firestore **OR-combines** every `match` block whose path matches a request. The generic block above matches `users`, `roles`, and `audit_logs` too, so it *adds* permission-based access on top of the specific, intentionally-narrow rules:
-- A non-admin holding a generic `users.view` permission can read **every user's** profile (the specific rule intended self-or-admin only).
-- Similarly `roles.view/edit/delete` reaches the admin-only `/roles` collection.
-- **Audit-log integrity is broken:** the `/audit_logs` block (lines 23–26) deliberately omits update/delete, but the catch-all grants them to anyone with `audit_logs.edit`/`.delete`, so logs are **not immutable**.
+An audit log that admins can update/delete is not an audit log. Make it create-only
+(`allow update, delete: if false`). Note also that no audit-log writer exists in the app:
+`AppConstants.collectionAuditLog = 'audit_logs'` (line 12) vs
+`AppConstants.moduleAuditLog = 'audit_log'` (line 36) — a latent key mismatch.
 
-**Fix:** exclude `users`, `roles`, and `audit_logs` from the catch-all (e.g. an explicit allow-list of business collections instead of `{collection}`), and make `audit_logs` create-only.
+### ✅ Fixed since the previous audit
+The catch-all `match /{collection}/{documentId}` no longer lists `users`, `roles` or
+`audit_logs`, so the earlier "access-widening" finding is closed.
 
-### 🟡 MEDIUM-3 — Permission-key naming inconsistency
-Line 24 checks module `'audit_log'` (singular) while the catch-all uses the collection name `'audit_logs'` (plural, line 28). Whichever key the `permissions` map actually uses, one of the two rules silently never matches. Standardize the module keys against the collection names.
+### 🟠 HIGH-5 — Debug backdoor authenticates as a hardcoded admin
+- [dev_config.dart:9-11](lib/core/config/dev_config.dart) — `enabled => kDebugMode`,
+  `autoLogin = true`.
+- [dev_config.dart:14-54](lib/core/config/dev_config.dart) — `devUser` is `role: 'admin'`
+  with `view/create/edit/delete = true` for **every** module.
+- [auth_bloc.dart:79-82](lib/presentation/blocs/auth/auth_bloc.dart) — when auto-login is
+  enabled, a failed/missing auth check **falls back to the dev admin** rather than failing.
+- [login_screen.dart:79-87](lib/presentation/screens/auth/login_screen.dart) — a
+  "Skip login (dev)" button grants the same full-admin session.
 
-### 🟡 MEDIUM-4 — No write-content validation; no App Check
-No rule validates document shape, quantities, foreign keys, or ownership on write. For a quantity-driven ERP (cutting → sewing → production → issue → export) all integrity currently depends on client code — most of which is unimplemented (§5). There is also no Firebase **App Check**, so a public web API key + HIGH-1 = a real, remotely-exploitable surface.
-
-### ℹ️ INFO-5 — `get()` on every rule evaluation
-`isAdmin()`/`hasPermission()` each `get()` the caller's user doc per evaluation → extra reads (billing) and latency on every request. Migrating role/permissions to **custom claims** eliminates this and closes HIGH-1 at the same time.
+Because `kDebugMode` is compile-time `false` in release builds, this does not ship to
+production — but **every debug/staging/profile build is a full-admin bypass with no
+password**, and the auto-login fallback masks real auth misconfiguration during QA.
 
 ### 🟡 Config — committed Firebase options contradict the README
-[firebase_options.dart:24-31](lib/firebase_options.dart) is present with real values for project `footwear-9d10e` and is **not** in [.gitignore](.gitignore), directly contradicting the README (“credentials … are not committed”). For Flutter **web** the API key is public-by-design (not a secret leak), but the intent mismatch should be resolved and the file's provenance made deliberate.
+[firebase_options.dart:23-30](lib/firebase_options.dart) contains live values for project
+`footwear-9d10e` and **is tracked in git** (`git ls-files` confirms), while the README
+states that platform credentials "are intentionally gitignored". For Flutter web the API
+key is public by design, so this is not a secret leak — but the intent mismatch should be
+resolved, and everything must still be locked down by the rules above (which currently
+are not). `android/app/google-services.json` and `ios/Runner/GoogleService-Info.plist`
+are correctly absent/gitignored.
 
 ---
 
-## 5. Feature completeness
+## 5. Correctness & business-logic findings
 
-Only a single vertical slice is wired end-to-end in [dependency_injection.dart](lib/injection/dependency_injection.dart) and backed by real code:
+The domain is a chain: **PO → Cutting → Sewing → Production → Issue → Export**. Each stage
+must consume no more than the previous stage produced. Several links in that rule are
+enforced; several are not.
 
-| Module | Entity | Model | Repo | Use cases | BLoC | Screens | DI-wired | Status |
-|---|---|---|---|---|---|---|---|---|
-| Auth | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working** |
-| User management | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working** |
-| Role management | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working** |
-| Master LC | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working** |
-| Purchase Order | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | **Working** |
-| Cutting | ✅ | ✅ | 🔴 `{}` | 🔴 stubs | 🔴 stub | ✅ screen | ❌ | **Placeholder** |
-| Sewing | ✅ | ✅ | 🔴 `{}` | 🔴 stubs | 🔴 stub | ✅ screen | ❌ | **Placeholder** |
-| Production | ✅ | ✅ | 🔴 `{}` | 🔴 stubs | 🔴 stub | ✅ screen | ❌ | **Placeholder** |
-| Issue | ✅ | ✅ | 🔴 `{}` | 🔴 stubs | 🔴 stub | ✅ screen | ❌ | **Placeholder** |
-| Export | ✅ | ✅ | 🔴 `{}` | 🔴 stubs | 🔴 stub | ✅ screen | ❌ | **Placeholder** |
-| Audit log | ✅ | ✅ | 🔴 `{}` | 🔴 stubs | 🔴 stub | ✅ screen | ❌ | **Placeholder** |
-| Dashboard | — | — | — | — | 🔴 stub | ✅ static shell | ❌ | **Shell only** |
-| Report | — | — | — | — | 🔴 stub | ✅ screens | ❌ | **Placeholder** |
+### 🔴 HIGH-6 — Update paths skip validation entirely (Cutting / Sewing / Production)
+```dart
+// lib/domain/usecases/cutting/update_cutting_usecase.dart
+Future<Either<String, void>> call(CuttingEntity item) => _repository.update(item);
+```
+Same shape in [update_sewing_usecase.dart](lib/domain/usecases/sewing/update_sewing_usecase.dart)
+and [update_production_usecase.dart](lib/domain/usecases/production/update_production_usecase.dart).
+Only [update_issue_usecase.dart](lib/domain/usecases/issue/update_issue_usecase.dart) calls
+`validateUpdate(...)`. So a record that passes validation on create can be **edited to any
+quantity afterwards**, with no cumulative check at all. `ValidateCuttingQuantityUseCase`
+already accepts an `excludingId` for exactly this case
+([validate_cutting_quantity_usecase.dart:14](lib/domain/usecases/cutting/validate_cutting_quantity_usecase.dart)) —
+it is simply never used by the update path.
 
-Example placeholder: [cutting_repository.dart](lib/data/repositories/cutting_repository.dart) is literally `class CuttingRepository {}`; the cutting/sewing/production/issue/export BLoC `*_event.dart` and `*_state.dart` files are 1 line each.
+### 🔴 HIGH-7 — Cumulative limits compare a single record against the whole of the previous stage
+```dart
+// lib/domain/usecases/sewing/create_sewing_usecase.dart
+final error = await _validate(
+  poTagNo: item.poTagNo,
+  sewingDate: item.sewingDate,
+  candidateQuantity: item.quantity,   // `alreadySewn` is NOT passed → defaults to 0
+);
+```
+`ValidateSewingQuantityUseCase` computes
+`alreadySewn + candidateQuantity > cumulativeCutting`
+([validate_sewing_quantity_usecase.dart:21](lib/domain/usecases/sewing/validate_sewing_quantity_usecase.dart)),
+but `alreadySewn` defaults to `0` and is **never supplied** by the create use case. The
+same is true for `alreadyProduced`
+([create_production_usecase.dart:12-16](lib/domain/usecases/production/create_production_usecase.dart))
+and `alreadyIssued`
+([create_issue_usecase.dart:12-16](lib/domain/usecases/issue/create_issue_usecase.dart)).
 
-**Reachable dead ends:** the router exposes `/cutting`, `/sewing`, `/production`, `/issue`, `/export` ([app_routes.dart:84-91](lib/presentation/routes/app_routes.dart)) even though those modules aren't implemented or DI-wired — navigating there leads to empty/incomplete screens.
+Net effect: if Cutting produced 100 units, a user can create **five** Sewing vouchers of
+100 each and every one passes. The rule only holds if each stage is entered exactly once.
+Only the Cutting create path is correct, because `ValidateCuttingQuantityUseCase`
+re-queries the cumulative total for the same PO line
+([validate_cutting_quantity_usecase.dart:19-25](lib/domain/usecases/cutting/validate_cutting_quantity_usecase.dart)).
+
+**Fix:** pass the already-recorded cumulative for the *same* stage (excluding the record
+being edited) into every `Validate*QuantityUseCase` call, mirroring
+`ValidateIssueQuantityUseCase.validateUpdate`
+([validate_issue_quantity_usecase.dart:38-62](lib/domain/usecases/issue/validate_issue_quantity_usecase.dart)),
+which is the correct pattern already in the codebase.
+
+### 🟠 HIGH-8 — Cumulative repository getters throw, and two BLoCs don't catch
+The cumulative getters are the only repository methods that do **not** use the
+`Either<String, T>` convention — they return a raw `Future<int>` and let
+`FirebaseException` propagate:
+
+- [cutting_repository.dart:198-210 and 213-236](lib/data/repositories/cutting_repository.dart)
+- [production_repository.dart:97-113](lib/data/repositories/production_repository.dart)
+- [issue_repository.dart:97-114](lib/data/repositories/issue_repository.dart)
+- `SewingRepository.getCumulativeSewingQuantity` (same shape)
+
+`ValidateSewingQuantityUseCase.call` and `ValidateProductionQuantityUseCase.call` do not
+guard those awaits, and the event handlers `SewingBloc.on<CreateSewing>`
+([sewing_bloc.dart:47-55](lib/presentation/blocs/sewing/sewing_bloc.dart)),
+`on<UpdateSewing>`, `ProductionBloc.on<CreateProduction>`
+([production_bloc.dart:47-55](lib/presentation/blocs/production/production_bloc.dart)) and
+`on<UpdateProduction>` have **no try/catch**. A Firestore error (offline, permission
+denied, missing index) therefore becomes an uncaught async error and the screen stays
+stuck on its loading spinner forever. `ValidateIssueQuantityUseCase` *does* wrap its call
+in `on Exception`
+([validate_issue_quantity_usecase.dart:32-34, 59-61](lib/domain/usecases/issue/validate_issue_quantity_usecase.dart)) —
+so the handling is inconsistent even within the same feature family.
+
+### 🟡 MEDIUM-9 — Mutable pagination cursor on `registerLazySingleton` repositories
+```dart
+DocumentSnapshot<Map<String, dynamic>>? _lastDoc;   // instance field
+```
+[master_lc_repository.dart:16](lib/data/repositories/master_lc_repository.dart) (and the
+same pattern in the PO, Cutting, Sewing, Production and Issue repositories) stores the
+keyset cursor on a **singleton**. Every screen and BLoC shares one cursor, so two
+concurrent list loads — e.g. a list screen plus a detail screen, or two open browser tabs
+on Flutter web — can read from each other's position and skip or repeat rows. The cursor
+belongs in the BLoC state, or the repositories should be factories.
+
+### 🟡 MEDIUM-10 — Validation ordering and negative "available" messages
+In `ValidateSewingQuantityUseCase` and `ValidateProductionQuantityUseCase` the database
+call happens **before** the `candidateQuantity <= 0` guard
+([validate_sewing_quantity_usecase.dart:16-20](lib/domain/usecases/sewing/validate_sewing_quantity_usecase.dart)),
+so invalid input still costs a Firestore read and the zero-quantity message differs
+between modules. The messages also interpolate `cumulative - alreadyRecorded`, which goes
+negative once a stage is over its limit. And `ValidatePOQuantityUseCase` has **no sign
+guard at all** — the test suite documents that as intended behaviour
+([validate_po_quantity_test.dart:90-100](test/unit/validate_po_quantity_test.dart) asserts a
+`-5` quantity is accepted).
+
+### 🟡 MEDIUM-11 — Duplicated / denormalised Firestore fields
+`CuttingModel` persists **both** `tagNo` and `poTagNo`, and **both** `quantity` and
+`cuttingQuantity`, each with read-time fallbacks
+([cutting_model.dart:45-87](lib/data/models/cutting/cutting_model.dart)). Two cumulative
+methods read `quantity`
+([cutting_repository.dart:208](lib/data/repositories/cutting_repository.dart)) while a third
+reads `cuttingQuantity ?? quantity`
+([cutting_repository.dart:231-233](lib/data/repositories/cutting_repository.dart)) — i.e. the
+same quantity is queried under two different field names. This works today only because
+`CuttingEntity`'s constructor aliases them
+([cutting_entity.dart:20-21](lib/domain/entities/cutting_entity.dart)); it is a latent
+source of "right in the UI, wrong in the validation" bugs. `POModel` has the same
+`poQuantity ?? quantity` fallback.
+
+### 🟡 LOW-12 — Form-level gaps in Cutting / Sewing / Production / Issue
+- Voucher numbers are **typed by hand** in every form, yet `AppConstants` defines
+  `cuttingVoucherPrefix`/`sewingVoucherPrefix`/… and nothing generates or uniqueness-checks
+  them → duplicate voucher numbers are possible. The originally specified
+  `generate_voucher_no` use case does not exist.
+- Sewing/Production/Issue forms use `DateTime.now()` with no date picker and set
+  `entryPerson: ''`
+  ([sewing_form_screen.dart:63-71](lib/presentation/screens/sewing/sewing_form_screen.dart)).
+- Those forms pop the route **immediately** after dispatching create
+  ([sewing_form_screen.dart:74](lib/presentation/screens/sewing/sewing_form_screen.dart)), so a
+  validation error surfaces on the list screen after navigation instead of on the form.
+- `sl` is `DateTime.now().millisecondsSinceEpoch` and lists are `orderBy('sl')`, so ordering
+  depends on clock skew rather than a stored sequence number.
+
+### 🟡 LOW-13 — Raw exceptions across layers in the Cutting detail screen
+`CuttingDetailScreen._load` throws `Exception(error)` out of an `Either.fold` to feed a
+`FutureBuilder`
+([cutting_detail_screen.dart:28, 37](lib/presentation/screens/cutting/cutting_detail_screen.dart)).
+It is contained, but it breaks the project's own "no exceptions across layers" rule and
+discards the specific error message.
+
+### ✅ Verified NOT a bug
+`DateFormat('dd/MM/yyyy', 'en_US')` is used in
+[dashboard_screen.dart:187-193](lib/presentation/screens/dashboard/dashboard_screen.dart)
+without `initializeDateFormatting`. This works — I verified it with a throwaway test
+against the actual `intl 0.18.1` dependency (`en_US` is the built-in default locale) — so
+no change is needed.
 
 ---
 
-## 6. Architecture & code quality
+## 6. Architecture & consistency
 
-### 6.1 Layering is inconsistent
-The README prescribes `domain → repository → datasource`. Auth follows it ([auth_repository.dart](lib/data/repositories/auth_repository.dart) → [auth_remote_datasource.dart](lib/data/datasources/remote/auth_remote_datasource.dart)), **but all four working CRUD repos bypass the datasource layer and call `FirebaseFirestore.instance` directly** ([master_lc_repository.dart:9](lib/data/repositories/master_lc_repository.dart), plus `po_`, `role_`, `user_` repos). The corresponding datasource files (`master_lc_remote_datasource.dart`, `po_*`, etc.) are **1-line stubs**. Decide on one pattern — either route repos through datasources, or delete the empty datasource layer.
+**Good:** clean `core / data / domain / presentation / injection` layering, `dartz`
+`Either` for most repository calls, GetIt DI, BLoC per feature, `go_router` with a single
+router, a central `RouteGuard`, and consistent naming across the four implemented modules.
+[AuthBloc](lib/presentation/blocs/auth/auth_bloc.dart) correctly disposes its
+`authStateChanges` subscription (lines 171-174).
 
-### 6.2 Duplicate & dead use-case files
-Two parallel naming schemes coexist. The `*_usecase.dart` variants are real and DI-wired; the shorter twins are empty dead code:
-- Real: `create_master_lc_usecase.dart` → `CreateMasterLCUseCase` (wired).
-- Dead: [create_master_lc.dart](lib/domain/usecases/master_lc/create_master_lc.dart) → `class CreateMasterLC { call() async {} }`.
+**Inconsistencies:**
 
-The same duplication exists for `login_user`/`register_user`/`get_current_user` vs. their `*_usecase` twins, most PO/Master-LC verbs, plus explicit `usecase_placeholder.dart` / `datasource_placeholder.dart` files. This is confusing scaffolding that should be deleted.
+1. **Three different ways to supply a BLoC.**
+   - Route-level `BlocProvider` — the majority (correct).
+   - Screen self-provides — [admin_dashboard_screen.dart:15](lib/presentation/screens/admin/admin_dashboard_screen.dart).
+   - `BlocProvider.value(GetIt.I<RoleManagementBloc>())` for `/admin/roles/create`
+     ([app_routes.dart:255-258](lib/presentation/routes/app_routes.dart)). Because
+     `RoleManagementBloc` is registered with `registerFactory`, `GetIt.I<>()` builds a
+     **new** instance that is never disposed by a `value` provider, and it starts with no
+     roles loaded. Pick one convention (route-level `create:` is the safest).
 
-### 6.3 Fake "generated" files
-All 10 `*.g.dart` files are hand-written decoys containing:
-```
-// Generated serialization placeholder. Run build_runner when model annotations are added.
-```
-Models actually hand-map Firestore (`fromSnapshot`/`toFirestore`, e.g. [master_lc_model.dart](lib/data/models/master_lc/master_lc_model.dart)) and use **no** `json_serializable`/`freezed` annotations. `build_runner` has never run. When it eventually does, it will overwrite these files — and their presence today misleads readers into thinking codegen is set up.
+2. **Route strings are not centralised.**
+   [route_constants.dart](lib/presentation/routes/route_constants.dart) holds only
+   `dashboard`, `login`, `register`, `resetPassword`; every other path is a hardcoded
+   literal in [app_routes.dart](lib/presentation/routes/app_routes.dart), the drawer and the
+   screens. `AppConstants` duplicates four of them (`authSplash`, `authLogin`,
+   `authRegister`, `authResetPassword`, `dashboardRoute`) — two sources of truth.
 
-### 6.4 Dead splash / other smells
-- `SplashScreen` is imported but unused (the real initial route is `/dashboard`) — the sole analyzer **warning** ([app_routes.dart:9](lib/presentation/routes/app_routes.dart)). Either wire it as the initial route or remove it.
-- Entities extend neither `Equatable` nor use `freezed` despite both being declared — value-equality is not implemented.
-- Dense single-line formatting, verbose field-by-field model rebuilds in `update()`, and leftover "if needed" comments in repos.
-- 12 info-level lints (mostly `curly_braces_in_flow_control_structures`, `unnecessary_underscores`).
+3. **Dead links to unbuilt modules.** The dashboard and drawer navigate to routes that do
+   not exist, so users hit the `errorBuilder` "Page not found" screen:
+   - `/export` — [dashboard_screen.dart:111-117](lib/presentation/screens/dashboard/dashboard_screen.dart),
+     [app_drawer.dart:56-61](lib/presentation/widgets/app_drawer.dart)
+   - `/reports` — [app_drawer.dart:85](lib/presentation/widgets/app_drawer.dart)
+   - `/audit-log` — [app_drawer.dart:86](lib/presentation/widgets/app_drawer.dart)
+
+4. **Leftover/dead routing code.**
+   - [route_generator.dart](lib/presentation/routes/route_generator.dart) — `RouteGenerator.onGenerateRoute`
+     always returns `null`; never referenced (Navigator 1.0 leftover).
+   - [splash_screen.dart](lib/presentation/screens/auth/splash_screen.dart) — a working screen that
+     is not registered in the router (`initialLocation` is `/`); dead.
+   - `GoRoute(path: '/dashboard', redirect: ...)` is still duplicated alongside
+     `RouteConstants.dashboard` ([app_routes.dart:57](lib/presentation/routes/app_routes.dart)).
+
+5. **Stub / absent modules.** Export has no entity, model, repository, use case, BLoC or
+   screen (only `AppConstants.collectionExport`, `moduleExport` and rules entries). Reports
+   is a `Cubit<int>` ([report_bloc.dart:3-4](lib/presentation/blocs/report/report_bloc.dart))
+   plus static `Text` screens, unrouted. Audit Log is constants + rules only. The
+   Permission Matrix screen renders non-interactive placeholder checkboxes
+   ([permission_matrix_screen.dart:19-30](lib/presentation/screens/role_management/permission_matrix_screen.dart)).
+
+6. **Small style issues.** [main.dart:51-52](lib/main.dart) wraps a single provider in
+   `MultiBlocProvider`; [auth_bloc.dart:111-121](lib/presentation/blocs/auth/auth_bloc.dart)
+   has inconsistent indentation inside `_onLogin`; the
+   `// ✅ FIXED: Admin permissions added for all modules` comment in
+   [dev_config.dart:13](lib/core/config/dev_config.dart) is a leftover changelog note in
+   source.
 
 ---
 
-## 7. Dependencies
+## 7. Dead code & dependency hygiene
 
-**~20 of 24 major dependencies are imported nowhere in `lib/`.** Unused: `dio`, `retrofit`, `excel`, `pdf`, `printing`, `fl_chart`, `firebase_messaging`, `image_picker`, `connectivity_plus`, `timezone`, `flutter_local_notifications`, `responsive_builder`, `flutter_svg`, `formz`, `flutter_screenutil`, `url_launcher`, `equatable`, `json_annotation`, `freezed_annotation`, `hive`/`hive_flutter`. Only `cloud_firestore`, `firebase_auth`, `firebase_core`, `get_it`, `flutter_bloc`, `go_router`, `dartz`, and (barely) `intl`/`shared_preferences`/`firebase_storage` are actually used.
+### 62 of 223 `lib/` files (28%) are never imported
 
-Consequences: larger build/attack surface, slower `pub get`, and dev-only codegen deps (`build_runner`, `freezed`, `json_serializable`, `hive_generator`, `retrofit_generator`) that currently do nothing.
+Verified by resolving every `import` target across `lib/`. The main clusters:
 
-Several packages are also pinned several majors behind current (`intl ^0.18.1`, `go_router ^12.1.3`, `fl_chart ^0.66.0`, `freezed ^2.x`, `flutter_local_notifications ^15.x`). Run `flutter pub outdated` and bump deliberately.
+| Area | Dead files |
+|---|---|
+| `core/services/**` (Firebase auth/storage/cloud-functions, Hive, SharedPrefs, cache, notifications) | 8 |
+| `core/widgets/**` (cards, common, forms, tables) | 14 |
+| `core/utils/validators`, `formatters`, `helpers`, `extensions`, `constants` | 12 |
+| `presentation/screens/report/**` (+ `blocs/report/*`) | 8 |
+| `screens/user_management/{user_form,user_edit,role_management}_screen.dart`, `role_management/role_edit_screen.dart` | 4 |
+| `screens/dashboard/{config, widgets/*}` | 5 |
+| `screens/{master_lc,purchase_order}/widgets/*_card.dart` | 2 |
+| `widgets/{empty_state,permission_checkbox_widget,status_badge}.dart` | 3 |
+| `routes/route_generator.dart`, `screens/auth/splash_screen.dart` | 2 |
+| `domain/usecases/role/{assign_permission_to_role,check_permission}_usecase.dart` | 2 |
+| misc | 2 |
 
-```bash
-flutter pub outdated
-```
+Dead code is not free: it inflates review surface, and two of the dead files are what make
+`firebase_storage` and `shared_preferences` look "used".
+
+### Dependencies: only 12 of 24 runtime packages are actually imported
+
+Imported (by count of import sites): `flutter` (74), `dartz` (58), `flutter_bloc` (37),
+`go_router` (21), `cloud_firestore` (19), `intl` (9), `get_it` (6), `firebase_auth` (5),
+`hive_flutter` (2), `firebase_core` (2), plus `firebase_storage` (1) and
+`shared_preferences` (1) **which only appear inside dead files** and are therefore
+effectively unused.
+
+**Declared but never imported anywhere:** `cupertino_icons`, `firebase_messaging`,
+`equatable`, `dio`, `retrofit`, `json_annotation`, `freezed_annotation`, `timezone`,
+`flutter_screenutil`, `responsive_builder`, `flutter_svg`, `formz`, `excel`, `pdf`,
+`printing`, `fl_chart`, `flutter_local_notifications`, `connectivity_plus`, `image_picker`,
+`url_launcher`.
+
+**Dev dependencies with nothing to generate:** `build_runner`, `json_serializable`,
+`freezed`, `hive_generator`, `retrofit_generator` — there are **no** `@JsonSerializable`,
+`@freezed` or `@HiveType` annotations and **no `.g.dart` files** anywhere. The previous
+audit's "fake generated files" are gone, but the codegen toolchain was left in place.
+
+Several majors are also behind what is already in the local pub cache (`intl ^0.18.1` while
+`0.20.2` is downloaded; also `go_router ^12.x`, `fl_chart ^0.66`, `freezed ^2.x`,
+`flutter_local_notifications ^15.x`). Run `flutter pub outdated` and bump deliberately.
 
 ---
 
 ## 8. Testing & CI
 
-- One test only: [test/widget_test.dart](test/widget_test.dart) exercises `AuthValidator`. No repository, BLoC, model, or widget tests.
-- No CI configuration found. The README documents `flutter pub get / dart analyze / flutter test` but nothing enforces it.
+- 4 test files / **26 tests**, all passing:
+  - [home_navigation_shell_test.dart](test/home_navigation_shell_test.dart) — 15 widget tests
+    proving the "Home" control returns from deep links (good regression coverage).
+  - [validate_po_quantity_test.dart](test/unit/validate_po_quantity_test.dart) — 6 unit tests,
+    including one that **encodes the missing negative-quantity guard as expected behaviour**.
+  - [validate_issue_quantity_test.dart](test/unit/validate_issue_quantity_test.dart) — 3 unit tests.
+  - [widget_test.dart](test/widget_test.dart) — 1 test for `AuthValidator`.
+- **Gaps that matter:** no BLoC tests; no widget test that pumps a list screen through its
+  `GoRoute` to prove the `BlocProvider` wiring (exactly the `ProviderNotFoundException`
+  class of bug this project already hit); no repository tests against `FakeFirebaseFirestore`;
+  no tests for the cumulative chain rules (HIGH-6/HIGH-7); and no `firestore.rules` tests
+  (the emulator suite is not set up).
+- **No CI:** `.github/` does not exist, so nothing enforces `flutter analyze` / `flutter test`
+  even though the README documents both.
 
 ---
 
-## 9. Runtime verification
-
-Launched via a generated `.claude/launch.json` (`flutter run -d web-server --web-port 8080`):
-- ✅ First compile succeeded (~136 s); server returns **HTTP 200** and serves the Flutter bootstrap.
-- ✅ App bootstraps — `<flutter-view>` present, runtime title updated to “Footwear ERP System”, **no console/Dart errors**.
-- Initial route is `/dashboard` (a static shell) behind `RouteGuard`; unauthenticated users are redirected to `/login`. (Full UI rendering can't be captured headlessly because Flutter web draws into a shadow-DOM canvas and the Browser pane must be open for screenshots — open it to view the live app.)
-
----
-
-## 10. Prioritized remediation plan
+## 9. Prioritized remediation plan
 
 **P0 — Security (before any real/production data)**
-1. Close HIGH-1: forbid client-set `role`/`permissions` at user-doc creation; move privileges to admin-only writes or custom claims.
-2. Fix HIGH-2: remove `users`/`roles`/`audit_logs` from the catch-all match; make `audit_logs` immutable (create-only).
-3. Add write-content validation to the rules; enable Firebase **App Check**; reconcile the `audit_log`/`audit_logs` key mismatch.
+1. Close HIGH-1: reject client-set `role`/`permissions` at user-document creation; move
+   privilege writes to an admin-only path or Firebase custom claims.
+2. Enforce HIGH-2: check the caller's `permissions` map (or claims) in the business-collection
+   rules instead of `activeUser()` alone.
+3. Make `audit_logs` create-only; add write-content validation; enable **App Check**;
+   reconcile `audit_log` / `audit_logs`.
+4. Make the debug backdoor explicit and safe: default `DevConfig.autoLogin` to `false`, never
+   fall back to the dev admin on an auth error, and gate the skip button behind an
+   environment flag rather than `kDebugMode`.
 
-**P1 — Correctness & hygiene**
-4. Delete dead/duplicate use-case files, all `*_placeholder.dart`, and the unused `SplashScreen` import.
-5. Remove (or gate) routes to unimplemented modules so users don't hit dead ends.
-6. Decide the serialization strategy: either adopt `json_serializable` and actually run `build_runner`, or keep manual mapping and drop the codegen deps + delete the fake `.g.dart` files.
+**P1 — Business-rule correctness**
+5. Fix HIGH-7: pass the already-recorded cumulative (same stage, excluding the edited record)
+   into `CreateSewing/Production/Issue` — copy the `validateUpdate` pattern.
+6. Fix HIGH-6: route `UpdateCutting/UpdateSewing/UpdateProduction` through their validators
+   (Cutting's `excludingId` support is already there).
+7. Fix HIGH-8: return `Either` from the cumulative repository getters (or wrap them with
+   `RepositoryGuard`) and add try/catch to the sewing/production create/update handlers.
+8. Move the `candidateQuantity <= 0` guard before the network call in every validator; add
+   the missing sign guard to `ValidatePOQuantityUseCase` and update its test.
+9. Move the pagination cursor out of the singleton repositories.
 
-**P2 — Consistency, deps, tests**
-7. Prune the ~20 unused dependencies (or implement the features that need them); run `flutter pub outdated` and bump majors.
-8. Choose one data-access pattern (datasource layer vs. direct-Firestore) and apply it uniformly.
-9. Add tests (validators, repos against a fake Firestore, BLoCs) and a CI job running `dart analyze` + `flutter test`.
-10. Standardize repository method naming (`getMasterLCList`/`byTag`/`createMasterLC`/`update`/`delete` are inconsistent).
+**P2 — Dead code, navigation, dependencies**
+10. Delete the 62 unreferenced files (or start using the good ones — `LoadingWidget`,
+    `EmptyState`, `StatusBadge`, `CustomTextField` etc. are reasonable to adopt), and remove
+    `route_generator.dart` + `splash_screen.dart`.
+11. Centralise every route in `RouteConstants`, use it everywhere, and drop both the
+    duplicate `/dashboard` route and the duplicated constants in `AppConstants`.
+12. Remove or implement the `/export`, `/reports` and `/audit-log` links so navigation never
+    reaches "Page not found".
+13. Prune the ~20 unused runtime deps and the 5 unused codegen dev deps; then run
+    `flutter pub outdated` and bump majors.
+
+**P3 — Quality gates**
+14. Add tests for the cumulative chain rules, one BLoC test per module, and a route-level
+    widget test per list screen.
+15. Add a CI workflow running `flutter analyze` and `flutter test` on push/PR.
 
 ---
 
-## 11. Bottom line
+## 10. Bottom line
 
-A well-organized **starting point** with a working auth + CRUD slice and a clean build — but it is ~20–25% of an ERP, carries misleading scaffolding (fake generated files, duplicate stubs, unused deps), and, most importantly, ships **Firestore rules that allow self-service admin escalation**. Fix the security rules first; then either implement or prune the placeholder modules so the codebase's apparent scope matches its real scope.
+This has moved a long way from the previous audit's "architectural scaffold": it now
+**analyzes cleanly, builds, and passes 26 tests**, Master LC and PO are complete vertical
+slices, and Cutting/Sewing/Production/Issue are functional module-by-module (entity, model,
+repository, use cases, BLoC, screens, routes, DI). The remaining work is concentrated, not
+diffuse: **two rule files' worth of authorization**, **three use-case wiring bugs in the
+quantity chain**, **one debug backdoor**, and a cleanup pass over 62 dead files and ~25
+unused packages. Fix the authorization rules and the chain validation first — those are the
+findings that cause real loss — then do the cleanup, which is mechanical and low-risk.
+
+---
+
+## 11. Changes since the 2026-08-22 audit
+
+| Prior finding | Status now |
+|---|---|
+| Firestore rules: privilege escalation on `users` create (HIGH-1) | ❌ **Still open** (§4 HIGH-1) |
+| Firestore rules: `users`/`roles`/`audit_logs` in the catch-all (HIGH-2) | ✅ Fixed — removed from the catch-all |
+| `audit_logs` mutable | ❌ Still open |
+| No write-content validation / no App Check | ❌ Still open |
+| 54 one-line stubs + 86 files ≤ 3 lines | ✅ Resolved — those files are gone; 62 files remain *unreferenced* but are real code |
+| 10 fake `.g.dart` "generated" files | ✅ Removed — zero `.g.dart` files now |
+| ~20 of 24 deps unused | ❌ Unchanged (now 20 of 24 unused + 5 dead codegen dev deps) |
+| Duplicate `/dashboard` route | ❌ Still present |
+| `route_generator.dart` dead routing code | ❌ Still present |
+| Unused `SplashScreen` | ❌ Still present (not routed) |
+| One trivial test | ✅ Improved — 26 tests across 4 files, all passing |
+| No CI | ❌ Still none |
+| Cutting/Sewing/Production/Issue/Export unimplemented | 🟡 Mostly implemented — Export still absent, Reports/Audit Log still stubs |
+| `ProviderNotFoundException` on Master LC / PO routes | ✅ Fixed — every BLoC-consuming screen is now provided by its route |
+
+*Not carried over from the prior report (now verified as non-issues): the "24 declared /
+~4 used" dependency count is now 12 used; the `audit_log`/`audit_logs` mismatch remains a
+latent key mismatch but no writer exists yet, so it is not yet a live bug.*
+

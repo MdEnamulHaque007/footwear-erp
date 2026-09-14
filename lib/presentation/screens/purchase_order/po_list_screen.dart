@@ -205,7 +205,9 @@ class _PODataTable extends StatelessWidget {
           ),
           onSelectChanged: kIsWeb ? null : (_) => openDetail(item),
           cells: [
-            DataCell(detailCell(item, Text('${entry.key + 1}'))),
+            // SRS Rule 1: show the auto-generated stored Sl., not the row
+            // position, so the list matches the detail view.
+            DataCell(detailCell(item, Text(item.sl.toString()))),
             DataCell(detailCell(
                 item, Text(DateFormat('dd/MM/yyyy').format(item.poDate)))),
             DataCell(detailCell(item, Text(item.poNo))),

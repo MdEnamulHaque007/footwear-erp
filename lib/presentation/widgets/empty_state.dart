@@ -3,11 +3,15 @@ import 'package:flutter/material.dart';
 class EmptyState extends StatelessWidget {
   const EmptyState({
     super.key,
+    this.icon = Icons.inbox_outlined,
+    this.iconColor,
     this.title = '📭 No records found',
     this.subtitle,
     this.action,
   });
 
+  final IconData icon;
+  final Color? iconColor;
   final String title;
   final String? subtitle;
   final Widget? action;
@@ -21,9 +25,9 @@ class EmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.inbox_outlined,
+              icon,
               size: 64,
-              color: Theme.of(context).colorScheme.outline,
+              color: iconColor ?? Theme.of(context).colorScheme.outline,
             ),
             const SizedBox(height: 12),
             Text(

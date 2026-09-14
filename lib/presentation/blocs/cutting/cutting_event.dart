@@ -1,8 +1,14 @@
 import '../../../domain/entities/cutting_entity.dart';
 
-sealed class CuttingEvent {}
+sealed class CuttingEvent {
+  const CuttingEvent();
+}
 
-class LoadCuttingList extends CuttingEvent {}
+class LoadCuttingList extends CuttingEvent {
+  const LoadCuttingList({this.limit = 20});
+
+  final int limit;
+}
 
 class LoadMoreCuttingList extends CuttingEvent {}
 
@@ -13,7 +19,11 @@ class SearchCutting extends CuttingEvent {
 
 class ClearSearchCutting extends CuttingEvent {}
 
-class RefreshCutting extends CuttingEvent {}
+class RefreshCutting extends CuttingEvent {
+  const RefreshCutting({this.limit = 20});
+
+  final int limit;
+}
 
 class LoadCuttingDetail extends CuttingEvent {
   LoadCuttingDetail(this.id, {this.initialItem});

@@ -1,15 +1,17 @@
-import '../../repositories/i_production_repository.dart';
 import '../../repositories/i_issue_repository.dart';
 
-/// Ensures cumulative Issue quantity never exceeds the cumulative
-/// Production quantity available for the same PO tag up to the issue date.
+/// Ensures an Issue never exceeds the Production quantity available for the
+/// same PO line, counting **only Production completed on or before the selected
+/// Issue Date**:
+///
+///     available = cumulative Production (productionDate <= issueDate)
+///               − cumulative Issue (same PO line)
+///
+/// The legacy tag-based signature (`poTagNo` + `alreadyIssued`) is preserved so
+/// existing callers keep working.
 class ValidateIssueQuantityUseCase {
-  ValidateIssueQuantityUseCase(
-    this._productionRepository, [
-    this._issueRepository,
-  ]);
-  final IProductionRepository _productionRepository;
-  final IIssueRepository? _issueRepository;
+  ValidateIssueQuantityUseCase(this._issueRepository);
+  final IIssueRepository _issueRepository;
 
   /// Returns an error message when invalid, or null when valid.
   Future<String?> call({
@@ -17,47 +19,101 @@ class ValidateIssueQuantityUseCase {
     required DateTime issueDate,
     required int candidateQuantity,
     int alreadyIssued = 0,
+
+    /// Optional PO line; when supplied the Production and Issue totals are
+    /// resolved per line, otherwise the caller-provided [alreadyIssued] is used.
+    String poNo = '',
+    String article = '',
+    String color = '',
+    String? excludeId,
+
+    /// When supplied the caller already loaded the availability (e.g. the form
+    /// preview), so the repository round-trip is skipped.
+    int? availableQuantity,
   }) async {
-    if (candidateQuantity <= 0) return 'Quantity must be greater than zero';
+    if (candidateQuantity <= 0) {
+      return 'Quantity must be greater than zero';
+    }
     try {
-      final cumulativeProduction = await _productionRepository
-          .getCumulativeProductionQuantity(
-            poTagNo: poTagNo,
-            upToDate: issueDate,
-          );
-      if (alreadyIssued + candidateQuantity > cumulativeProduction) {
-        return 'Issue quantity exceeds available production quantity '
-            '(available: ${cumulativeProduction - alreadyIssued})';
+      if (availableQuantity != null) {
+        if (candidateQuantity > availableQuantity) {
+          return 'Issue quantity exceeds available production quantity '
+              '(available: $availableQuantity)';
+        }
+        return null;
       }
-    } on Exception {
+      final available = await availability(
+        poTagNo: poTagNo,
+        issueDate: issueDate,
+        poNo: poNo,
+        article: article,
+        color: color,
+        excludeId: excludeId,
+        alreadyIssued: alreadyIssued,
+      );
+      if (candidateQuantity > available) {
+        return 'Issue quantity exceeds available production quantity '
+            '(available: $available)';
+      }
+      return null;
+    } catch (_) {
       return 'Unable to validate issue quantity. Please try again.';
     }
-    return null;
   }
 
+  /// Update variant that self-excludes the edited entry.
   Future<String?> validateUpdate({
     required String issueId,
     required String poTagNo,
     required DateTime issueDate,
     required int candidateQuantity,
+    String poNo = '',
+    String article = '',
+    String color = '',
+  }) => call(
+    poTagNo: poTagNo,
+    issueDate: issueDate,
+    candidateQuantity: candidateQuantity,
+    poNo: poNo,
+    article: article,
+    color: color,
+    excludeId: issueId,
+  );
+
+  /// Production (up to [issueDate]) − Issue for one PO line/tag.
+  Future<int> availability({
+    required String poTagNo,
+    required DateTime issueDate,
+    String poNo = '',
+    String article = '',
+    String color = '',
+    String? excludeId,
+    int alreadyIssued = 0,
   }) async {
-    if (_issueRepository == null) {
-      return 'Unable to validate issue quantity. Please try again.';
-    }
-    try {
-      final alreadyIssued = await _issueRepository.getCumulativeIssueQuantity(
-        poTagNo: poTagNo,
+    if (poNo.isNotEmpty && article.isNotEmpty && color.isNotEmpty) {
+      final production = await _issueRepository.getCumulativeProductionQty(
+        poNo: poNo,
+        article: article,
+        color: color,
         upToDate: issueDate,
-        excludingId: issueId,
       );
-      return call(
-        poTagNo: poTagNo,
-        issueDate: issueDate,
-        candidateQuantity: candidateQuantity,
-        alreadyIssued: alreadyIssued,
+      final issued = await _issueRepository.getCumulativeIssueQty(
+        poNo: poNo,
+        article: article,
+        color: color,
+        excludeId: excludeId,
       );
-    } on Exception {
-      return 'Unable to validate issue quantity. Please try again.';
+      return production - issued;
     }
+    // Legacy tag-based path. The caller either supplies `alreadyIssued`
+    // (previously computed from Production) or the cumulative Issue recorded
+    // against the tag is resolved from the repository.
+    final issued = await _issueRepository.getCumulativeIssueQuantity(
+      poTagNo: poTagNo,
+      upToDate: issueDate,
+      excludingId: excludeId,
+    );
+    final baseline = alreadyIssued > 0 ? alreadyIssued : issued;
+    return baseline - issued;
   }
 }

@@ -34,3 +34,6 @@ class LoadMasterLCDetail extends MasterLCEvent {
   final String id;
   final MasterLCEntity? initialItem;
 }
+
+/// Loads the predefined Project / Company lists for the form dropdowns.
+class LoadPredefinedLists extends MasterLCEvent {}

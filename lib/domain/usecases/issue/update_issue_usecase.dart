@@ -9,6 +9,19 @@ class UpdateIssueUseCase {
   final ValidateIssueQuantityUseCase _validate;
 
   Future<Either<String, void>> call(IssueEntity item) async {
+    if (item.poNo.isNotEmpty) {
+      final error = await _validate.validateUpdate(
+        issueId: item.id ?? '',
+        poTagNo: item.poTagNo,
+        issueDate: item.issueDate,
+        candidateQuantity: item.quantity,
+        poNo: item.poNo,
+        article: item.article,
+        color: item.color,
+      );
+      if (error != null) return Left(error);
+      return _repository.updateWithTransaction(item);
+    }
     final error = await _validate.validateUpdate(
       issueId: item.id ?? '',
       poTagNo: item.poTagNo,

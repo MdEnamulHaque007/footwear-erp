@@ -52,21 +52,22 @@ void main() {
       addTearDown(router.dispose);
       await tester.pumpWidget(MaterialApp.router(routerConfig: router));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(TextButton, 'Home'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'Home'));
       await tester.pumpAndSettle();
       expect(router.routeInformationProvider.value.uri.path, '/');
       expect(find.text('Dashboard'), findsOneWidget);
-      expect(find.widgetWithText(TextButton, 'Home'), findsNothing);
+      expect(find.widgetWithText(NavigationDestination, 'Home'), findsOneWidget);
     });
   }
 
   for (final path in ['/', '/login', '/register', '/reset-password']) {
-    testWidgets('No redundant Home control on $path', (tester) async {
+    testWidgets('Bottom navigation visibility is correct on $path', (tester) async {
       final router = makeRouter(path);
       addTearDown(router.dispose);
       await tester.pumpWidget(MaterialApp.router(routerConfig: router));
       await tester.pumpAndSettle();
-      expect(find.widgetWithText(TextButton, 'Home'), findsNothing);
+      final expected = path == '/' ? findsOneWidget : findsNothing;
+      expect(find.widgetWithText(NavigationDestination, 'Home'), expected);
     });
   }
 
@@ -76,7 +77,7 @@ void main() {
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     router.push('/purchase-orders/new');
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(TextButton, 'Home'));
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Home'));
     await tester.pumpAndSettle();
     expect(find.text('Dashboard'), findsOneWidget);
     expect(router.canPop(), isFalse);

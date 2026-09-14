@@ -6,5 +6,6 @@ abstract interface class IAuthRepository {
   Future<void> logout();
   Future<UserEntity?> getCurrentUser();
   Future<void> resetPassword(String email);
+  Future<UserEntity> updateDisplayName(String displayName);
   Stream<UserEntity?> get authStateChanges;
 }

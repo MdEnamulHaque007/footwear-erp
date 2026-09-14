@@ -21,7 +21,24 @@ class _FakePORepository implements IPORepository {
       Right(existing.where((po) => po.tagNo == tag).toList());
 
   @override
+  Future<Either<String, POModel?>> byId(String id) async => const Right(null);
+
+  @override
+  Future<int> getMaxSl() async => 1;
+
+  @override
+  Future<bool> isPoNoUnique(String poNo, {String? excludeId}) async => true;
+
+  @override
   Future<Either<String, void>> createPO(POEntity item) async =>
+      const Right(null);
+
+  @override
+  Future<Either<String, void>> createWithTransaction(POEntity item) async =>
+      const Right(null);
+
+  @override
+  Future<Either<String, void>> updateWithTransaction(POEntity item) async =>
       const Right(null);
 
   @override

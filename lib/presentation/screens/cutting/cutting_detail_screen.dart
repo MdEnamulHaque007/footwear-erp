@@ -89,7 +89,6 @@ class _CuttingDetailScreenState extends State<CuttingDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _section('Cutting Information', [
-                _row('SL', '${data.item.sl}'),
                 _row('Date', _date(data.item.cuttingDate)),
                 _row('Voucher No', data.item.voucherNo),
                 _row('Factory', data.item.factoryName),
@@ -122,7 +121,6 @@ class _CuttingDetailScreenState extends State<CuttingDetailScreen> {
                 scrollDirection: Axis.horizontal,
                 child: DataTable(
                   columns: const [
-                    DataColumn(label: Text('SL')),
                     DataColumn(label: Text('Date')),
                     DataColumn(label: Text('Voucher')),
                     DataColumn(label: Text('Qty')),
@@ -132,7 +130,6 @@ class _CuttingDetailScreenState extends State<CuttingDetailScreen> {
                     final item = entry.value;
                     return DataRow(
                       cells: [
-                        DataCell(Text('${entry.key + 1}')),
                         DataCell(Text(_date(item.cuttingDate))),
                         DataCell(Text(item.voucherNo)),
                         DataCell(Text('${item.cuttingQuantity}')),

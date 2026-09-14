@@ -8,6 +8,7 @@ import '../../domain/entities/user_entity.dart';
 import '../blocs/auth/auth_bloc.dart';
 import '../blocs/auth/auth_event.dart';
 import '../blocs/auth/auth_state.dart';
+import '../routes/route_constants.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -19,14 +20,17 @@ class AppDrawer extends StatelessWidget {
     final isAdmin = user?.role.toLowerCase() == AppConstants.roleAdmin;
 
     return Drawer(
-      width: 300,
+      width: 312,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.horizontal(right: Radius.circular(24)),
+      ),
       child: SafeArea(
         child: Column(
           children: [
             _UserHeader(user: user),
             Expanded(
               child: ListView(
-                padding: EdgeInsets.zero,
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
                 children: [
                   _section(context, 'MAIN', [
                     _item(
@@ -83,13 +87,17 @@ class AppDrawer extends StatelessWidget {
                     ]),
                   _section(context, 'REPORTS & ANALYTICS', [
                     _item(context, 'Reports', Icons.bar_chart, '/reports'),
-                    _item(context, 'Audit Log', Icons.history, '/audit-log'),
+                    if (isAdmin)
+                      _item(context, 'Audit Log', Icons.history, '/audit-log'),
                   ]),
                   _section(context, 'SETTINGS', [
                     ListTile(
                       leading: const Icon(Icons.settings),
                       title: const Text('Settings'),
-                      onTap: () => _showUnavailable(context, 'Settings'),
+                      onTap: () {
+                        Navigator.pop(context);
+                        context.go(RouteConstants.settings);
+                      },
                     ),
                     ListTile(
                       leading: const Icon(Icons.help),
@@ -124,17 +132,18 @@ class AppDrawer extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          padding: const EdgeInsets.fromLTRB(12, 18, 12, 6),
           child: Text(
             title,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
               fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              color: ColorPalette.muted,
+              letterSpacing: 0.8,
             ),
           ),
         ),
         ...items,
-        const Divider(height: 1),
+        const SizedBox(height: 8),
       ],
     );
   }
@@ -149,8 +158,10 @@ class AppDrawer extends StatelessWidget {
     final selected = currentPath == route || currentPath.startsWith('$route/');
     return ListTile(
       selected: selected,
+      dense: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
-      leading: Icon(icon),
+      leading: Icon(icon, size: 21),
       title: Text(title),
       onTap: () {
         Navigator.pop(context);
@@ -203,19 +214,20 @@ class _UserHeader extends StatelessWidget {
     final initial = name.trim().isEmpty ? 'U' : name.trim()[0].toUpperCase();
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 24, 16, 20),
+      padding: const EdgeInsets.fromLTRB(24, 28, 20, 24),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [ColorPalette.primary, Color(0xFF512DA8)],
+          colors: [Color(0xFF155EEF), Color(0xFF4938C2)],
         ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           CircleAvatar(
-            backgroundColor: Colors.white,
-            foregroundColor: Theme.of(context).colorScheme.primary,
-            child: Text(initial),
+            radius: 24,
+            backgroundColor: Colors.white.withValues(alpha: 0.92),
+            foregroundColor: ColorPalette.primary,
+            child: Text(initial, style: const TextStyle(fontWeight: FontWeight.w800)),
           ),
           const SizedBox(width: 12),
           Expanded(

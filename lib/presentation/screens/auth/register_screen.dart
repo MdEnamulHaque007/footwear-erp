@@ -31,7 +31,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     appBar: AppBar(title: const Text('Register')),
     body: BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
-        if (state is RegisterSuccess) context.go('/login');
+        if (state is Authenticated) context.go('/');
         if (state is AuthError) {
           ScaffoldMessenger.of(
             context,

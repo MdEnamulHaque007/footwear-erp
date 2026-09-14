@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../domain/entities/master_lc_entity.dart';
 import '../../blocs/master_lc/master_lc_bloc.dart';
 import '../../blocs/master_lc/master_lc_event.dart';
@@ -19,8 +20,6 @@ class _MasterLCFormScreenState extends State<MasterLCFormScreen> {
   // Controllers for each input field
   final TextEditingController tag = TextEditingController();
   final TextEditingController date = TextEditingController();
-  final TextEditingController project = TextEditingController();
-  final TextEditingController company = TextEditingController();
   final TextEditingController scNo = TextEditingController();
   final TextEditingController lcNo = TextEditingController();
   final TextEditingController ttNo = TextEditingController();
@@ -30,13 +29,17 @@ class _MasterLCFormScreenState extends State<MasterLCFormScreen> {
   final _formKey = GlobalKey<FormState>();
   DateTime? _selectedDate;
 
+  /// SRS: Project and Company are selected from predefined dropdown lists.
+  String? _project;
+  String? _company;
+  List<String> _projects = [];
+  List<String> _companies = [];
+
   @override
   void dispose() {
     for (final c in [
       tag,
       date,
-      project,
-      company,
       scNo,
       lcNo,
       ttNo,
@@ -56,14 +59,44 @@ class _MasterLCFormScreenState extends State<MasterLCFormScreen> {
     date.text = DateFormat('dd/MM/yyyy').format(_selectedDate!);
     if (item != null) {
       tag.text = item.tagNo;
-      project.text = item.project;
-      company.text = item.company;
+      _project = item.project.trim().isEmpty ? null : item.project.trim();
+      _company = item.company.trim().isEmpty ? null : item.company.trim();
+      // Seed the option lists with the record's own values so the edit-mode
+      // selection always has a matching DropdownMenuItem.
+      if (_project != null) _projects = [_project!];
+      if (_company != null) _companies = [_company!];
       scNo.text = item.scNo;
       lcNo.text = item.lcNo;
       ttNo.text = item.ttNo;
       quantity.text = NumberFormat('#,##0').format(item.masterLcQuantity);
       value.text = NumberFormat('#,##0.00').format(item.masterLcValue);
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<MasterLCBloc>().add(LoadPredefinedLists());
+    });
+  }
+
+  /// Case-insensitive dedupe so `DropdownButtonFormField` never receives two
+  /// items with the same value (which throws an assertion and crashes the form).
+  List<String> _safeItems(Iterable<String> values) {
+    final seen = <String>{};
+    final result = <String>[];
+    for (final value in values) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) continue;
+      if (seen.add(trimmed.toLowerCase())) result.add(trimmed);
+    }
+    result.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return result;
+  }
+
+  /// Only passes a value that actually exists in [items], otherwise null.
+  String? _safeValue(String? value, List<String> items) {
+    if (value == null) return null;
+    final match = items.where(
+      (item) => item.toLowerCase() == value.toLowerCase(),
+    );
+    return match.isEmpty ? null : match.first;
   }
 
   // Helper to build a TextFormField with common styling
@@ -118,11 +151,62 @@ class _MasterLCFormScreenState extends State<MasterLCFormScreen> {
         validator: (_) => _selectedDate == null ? 'Please select a date' : null,
       );
 
+  /// SRS "predefined dropdown list" for Project.
+  Widget _projectDropdown() {
+    final items = _safeItems([..._projects, ...AppConstants.predefinedProjects]);
+    return DropdownButtonFormField<String>(
+      initialValue: _safeValue(_project, items),
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'Project *',
+        prefixIcon: Icon(Icons.business_center),
+        border: OutlineInputBorder(),
+      ),
+      items: items
+          .map((value) => DropdownMenuItem(value: value, child: Text(value)))
+          .toList(),
+      onChanged: (value) => setState(() => _project = value),
+      validator: (value) =>
+          (value == null || value.trim().isEmpty) ? 'Please select Project' : null,
+    );
+  }
+
+  /// SRS "predefined dropdown list" for Company.
+  Widget _companyDropdown() {
+    final items = _safeItems([
+      ..._companies,
+      ...AppConstants.predefinedCompanies,
+    ]);
+    return DropdownButtonFormField<String>(
+      initialValue: _safeValue(_company, items),
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'Company *',
+        prefixIcon: Icon(Icons.apartment),
+        border: OutlineInputBorder(),
+      ),
+      items: items
+          .map((value) => DropdownMenuItem(value: value, child: Text(value)))
+          .toList(),
+      onChanged: (value) => setState(() => _company = value),
+      validator: (value) =>
+          (value == null || value.trim().isEmpty) ? 'Please select Company' : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<MasterLCBloc, MasterLCState>(
       listener: (context, state) {
-        if (state is MasterLCSuccess) {
+        if (state is PredefinedListsLoaded) {
+          setState(() {
+            _projects = state.projects;
+            _companies = state.companies;
+            // Guard against a stale edit-mode selection.
+            _project = _safeValue(_project, _safeItems(_projects));
+            _company = _safeValue(_company, _safeItems(_companies));
+          });
+        } else if (state is MasterLCSuccess) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(state.message)),
           );
@@ -152,19 +236,9 @@ class _MasterLCFormScreenState extends State<MasterLCFormScreen> {
                 icon: Icons.label,
               ),
               const SizedBox(height: 16),
-              _buildTextField(
-                controller: project,
-                label: 'Project',
-                requiredField: true,
-                icon: Icons.business_center,
-              ),
+              _projectDropdown(),
               const SizedBox(height: 16),
-              _buildTextField(
-                controller: company,
-                label: 'Company',
-                requiredField: true,
-                icon: Icons.apartment,
-              ),
+              _companyDropdown(),
               const SizedBox(height: 16),
               _buildTextField(
                 controller: scNo,
@@ -224,11 +298,14 @@ class _MasterLCFormScreenState extends State<MasterLCFormScreen> {
                   if (_formKey.currentState?.validate() ?? false) {
                     final item = MasterLCEntity(
                       id: widget.id ?? widget.entity?.id,
-                      sl: DateTime.now().millisecondsSinceEpoch,
+                      // SRS Rule 1: the Sl. is auto-generated by the repository
+                      // inside the create transaction. 0 means "not yet
+                      // assigned"; the persisted value is preserved on update.
+                      sl: widget.entity?.sl ?? 0,
                       masterLcDate: _selectedDate!,
                       tagNo: tag.text.trim(),
-                      project: project.text.trim(),
-                      company: company.text.trim(),
+                      project: _project?.trim() ?? '',
+                      company: _company?.trim() ?? '',
                       scNo: scNo.text.trim(),
                       lcNo: lcNo.text.trim(),
                       ttNo: ttNo.text.trim(),

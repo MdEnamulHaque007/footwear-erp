@@ -102,6 +102,7 @@ class _DetailBody extends StatelessWidget {
       children: [
         _sectionTitle('PO Information'),
         _infoGrid([
+          _info('SL', item.sl.toString()),
           _info('PO Date', DateFormat('dd/MM/yyyy').format(item.poDate)),
           _info('PO No', item.poNo),
           _info('Entry Person', item.entryPerson),

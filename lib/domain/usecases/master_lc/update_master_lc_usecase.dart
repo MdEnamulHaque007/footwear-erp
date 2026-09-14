@@ -6,5 +6,6 @@ class UpdateMasterLCUseCase {
   UpdateMasterLCUseCase(this._repository); 
   final IMasterLCRepository _repository; 
   
-  Future<Either<String, void>> call(MasterLCEntity item) => _repository.update(item); 
+  Future<Either<String, void>> call(MasterLCEntity item) =>
+      _repository.updateWithTransaction(item);
 }

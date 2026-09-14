@@ -31,10 +31,22 @@ class AdminDashboardScreen extends StatelessWidget {
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
                 children: [
-                  _card('Total users', '${state.totalUsers}', Icons.people),
-                  _card('Total roles', '${state.totalRoles}', Icons.badge),
-                  _card('Active users', '${state.activeUsers}', Icons.check_circle),
+                  _card(
+                    'Total users',
+                    '${state.stats.userCount}',
+                    Icons.people,
+                  ),
+                  _card(
+                    'Active users',
+                    '${state.stats.activeUserCount}',
+                    Icons.check_circle,
+                  ),
                   _card('Recent activities', 'Audit log', Icons.history),
+                  _card(
+                    'Total records',
+                    '${state.stats.totalRecords}',
+                    Icons.inventory_2,
+                  ),
                 ],
               );
             }

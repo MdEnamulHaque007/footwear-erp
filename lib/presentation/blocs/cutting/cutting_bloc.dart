@@ -31,11 +31,11 @@ class CuttingBloc extends Bloc<CuttingEvent, CuttingState> {
       _currentPage = 0;
       _hasMore = true;
       emit(CuttingLoading());
-      final result = await getList(page: _currentPage, limit: 20);
+      final result = await getList(page: _currentPage, limit: event.limit);
       if (emit.isDone) return;
       result.fold((error) => emit(CuttingError(error)), (items) {
         _items = items;
-        _hasMore = items.length == 20;
+        _hasMore = items.length == event.limit;
         emit(
           CuttingLoaded(_items, hasMore: _hasMore, currentPage: _currentPage),
         );
@@ -78,11 +78,11 @@ class CuttingBloc extends Bloc<CuttingEvent, CuttingState> {
       if (emit.isDone) return;
       emit(CuttingSearchLoaded(results));
     });
-    on<ClearSearchCutting>((event, emit) async => add(LoadCuttingList()));
+    on<ClearSearchCutting>((event, emit) async => add(const LoadCuttingList()));
     on<RefreshCutting>((event, emit) async {
       _currentPage = 0;
       _hasMore = true;
-      add(LoadCuttingList());
+      add(LoadCuttingList(limit: event.limit));
     });
     on<LoadCuttingDetail>((event, emit) async {
       emit(CuttingLoading());

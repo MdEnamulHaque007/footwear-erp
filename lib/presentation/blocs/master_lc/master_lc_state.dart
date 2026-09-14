@@ -8,8 +8,19 @@ class MasterLCInitial extends MasterLCState {}
 class MasterLCLoading extends MasterLCState {}
 
 class MasterLCLoaded extends MasterLCState {
-  MasterLCLoaded(this.items);
+  MasterLCLoaded(this.items, {this.hasMore = false, this.currentPage = 0});
   final List<MasterLCEntity> items;
+
+  /// True when another page is available, which drives the load-more trigger.
+  final bool hasMore;
+  final int currentPage;
+}
+
+/// A page fetch is in flight while the current page stays on screen.
+class MasterLCLoadingMore extends MasterLCState {
+  MasterLCLoadingMore(this.items, {this.currentPage = 0});
+  final List<MasterLCEntity> items;
+  final int currentPage;
 }
 
 class MasterLCError extends MasterLCState {
@@ -50,4 +61,11 @@ class MasterLCDetailLoaded extends MasterLCState {
 class MasterLCDetailError extends MasterLCState {
   MasterLCDetailError(this.message);
   final String message;
+}
+
+/// Predefined Project / Company options for the Master LC form dropdowns.
+class PredefinedListsLoaded extends MasterLCState {
+  PredefinedListsLoaded({required this.projects, required this.companies});
+  final List<String> projects;
+  final List<String> companies;
 }

@@ -2,17 +2,29 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../domain/entities/sewing_entity.dart';
 
 class SewingModel extends SewingEntity {
-  const SewingModel({
+  SewingModel({
     super.id,
     required super.sl,
     required super.voucherNo,
     required super.sewingDate,
-    required super.poTagNo,
-    required super.quantity,
+    super.poNo,
+    super.tagNo,
+    super.company,
+    super.project,
+    super.article,
+    super.color,
+    super.cuttingQuantity,
+    super.availableQuantity,
+    super.sewingQuantity,
+    super.poTagNo,
+    super.quantity,
+    super.factoryName,
     required super.entryPerson,
     super.remarks,
     super.createdAt,
     super.updatedAt,
+    super.source,
+    super.syncStatus,
   });
 
   factory SewingModel.fromEntity(SewingEntity e) => SewingModel(
@@ -20,27 +32,56 @@ class SewingModel extends SewingEntity {
     sl: e.sl,
     voucherNo: e.voucherNo,
     sewingDate: e.sewingDate,
+    poNo: e.poNo,
+    tagNo: e.tagNo,
+    company: e.company,
+    project: e.project,
+    article: e.article,
+    color: e.color,
+    cuttingQuantity: e.cuttingQuantity,
+    availableQuantity: e.availableQuantity,
+    sewingQuantity: e.effectiveQuantity,
     poTagNo: e.poTagNo,
     quantity: e.quantity,
+    factoryName: e.factoryName,
     entryPerson: e.entryPerson,
     remarks: e.remarks,
     createdAt: e.createdAt,
     updatedAt: e.updatedAt,
+    source: e.source,
+    syncStatus: e.syncStatus,
   );
 
+  /// Reads a Firestore document defensively: legacy records may store numbers
+  /// as strings, dates as `Timestamp` / `DateTime` / ISO strings and may only
+  /// carry the legacy `poTagNo` + `quantity` fields.
   factory SewingModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> s) {
-    final d = s.data() ?? {};
+    final data = s.data() ?? {};
+    final tagNo = _string(data['tagNo'] ?? data['poTagNo']);
+    final sewingQuantity = _int(data['sewingQuantity'] ?? data['quantity']);
     return SewingModel(
       id: s.id,
-      sl: d['sl'] as int? ?? 0,
-      voucherNo: d['voucherNo'] as String? ?? '',
-      sewingDate: _date(d['sewingDate']) ?? DateTime.now(),
-      poTagNo: d['poTagNo'] as String? ?? '',
-      quantity: d['quantity'] as int? ?? 0,
-      entryPerson: d['entryPerson'] as String? ?? '',
-      remarks: d['remarks'] as String? ?? '',
-      createdAt: _date(d['createdAt']),
-      updatedAt: _date(d['updatedAt']),
+      sl: _int(data['sl']),
+      voucherNo: _string(data['voucherNo']),
+      sewingDate: _date(data['sewingDate']) ?? DateTime.now(),
+      poNo: _string(data['poNo']),
+      tagNo: tagNo,
+      company: _string(data['company']),
+      project: _string(data['project']),
+      article: _string(data['article']),
+      color: _string(data['color']),
+      cuttingQuantity: _int(data['cuttingQuantity']),
+      availableQuantity: _int(data['availableQuantity']),
+      sewingQuantity: sewingQuantity,
+      poTagNo: _string(data['poTagNo'] ?? tagNo),
+      quantity: sewingQuantity,
+      factoryName: _string(data['factoryName']),
+      entryPerson: _string(data['entryPerson']),
+      remarks: _string(data['remarks']),
+      createdAt: _date(data['createdAt']),
+      updatedAt: _date(data['updatedAt']),
+      source: data['source'] as String?,
+      syncStatus: data['syncStatus'] as String?,
     );
   }
 
@@ -48,19 +89,61 @@ class SewingModel extends SewingEntity {
     'sl': sl,
     'voucherNo': voucherNo,
     'sewingDate': Timestamp.fromDate(sewingDate),
+    'poNo': poNo,
+    'tagNo': tagNo,
+    'company': company,
+    'project': project,
+    'article': article,
+    'color': color,
+    'sewingQuantity': effectiveQuantity,
+    'quantity': effectiveQuantity,
+    'cuttingQuantity': cuttingQuantity,
+    'availableQuantity': availableQuantity,
     'poTagNo': poTagNo,
-    'quantity': quantity,
+    'factoryName': factoryName,
     'entryPerson': entryPerson,
     'remarks': remarks,
-    'createdAt': createdAt == null
-        ? Timestamp.now()
-        : Timestamp.fromDate(createdAt!),
-    if (updatedAt != null) 'updatedAt': Timestamp.fromDate(updatedAt!),
+    'createdAt': Timestamp.fromDate(createdAt),
+    'updatedAt': Timestamp.now(),
+    'source': source ?? 'manual',
+    'syncStatus': syncStatus ?? 'synced',
   };
 
-  static DateTime? _date(Object? v) => v is Timestamp
-      ? v.toDate()
-      : v is DateTime
-      ? v
-      : null;
+  SewingEntity toEntity() => SewingEntity(
+    id: id,
+    sl: sl,
+    voucherNo: voucherNo,
+    sewingDate: sewingDate,
+    poNo: poNo,
+    tagNo: tagNo,
+    company: company,
+    project: project,
+    article: article,
+    color: color,
+    cuttingQuantity: cuttingQuantity,
+    availableQuantity: availableQuantity,
+    sewingQuantity: sewingQuantity,
+    poTagNo: poTagNo,
+    quantity: quantity,
+    factoryName: factoryName,
+    entryPerson: entryPerson,
+    remarks: remarks,
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+    source: source,
+    syncStatus: syncStatus,
+  );
+
+  static String _string(Object? value) => value?.toString().trim() ?? '';
+
+  static int _int(Object? value) => value is num
+      ? value.toInt()
+      : int.tryParse(value?.toString().trim() ?? '') ?? 0;
+
+  static DateTime? _date(Object? value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
+    return null;
+  }
 }

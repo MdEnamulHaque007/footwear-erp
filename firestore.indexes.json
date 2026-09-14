@@ -78,6 +78,51 @@
       ]
     },
     {
+      "collectionGroup": "sewings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "poNo", "order": "ASCENDING" },
+        { "fieldPath": "article", "order": "ASCENDING" },
+        { "fieldPath": "color", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sewings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "poNo", "order": "ASCENDING" },
+        { "fieldPath": "article", "order": "ASCENDING" },
+        { "fieldPath": "color", "order": "ASCENDING" },
+        { "fieldPath": "sewingDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sewings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "poNo", "order": "ASCENDING" },
+        { "fieldPath": "article", "order": "ASCENDING" },
+        { "fieldPath": "color", "order": "ASCENDING" },
+        { "fieldPath": "sl", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sewings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "poNo", "order": "ASCENDING" },
+        { "fieldPath": "sewingDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sewings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "poNo", "order": "ASCENDING" },
+        { "fieldPath": "sl", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "productions",
       "queryScope": "COLLECTION",
       "fields": [
@@ -94,11 +139,48 @@
       ]
     },
     {
-      "collectionGroup": "issues",
+      "collectionGroup": "productions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "poTagNo", "order": "ASCENDING" },
-        { "fieldPath": "issueDate", "order": "DESCENDING" }
+        { "fieldPath": "poNo", "order": "ASCENDING" },
+        { "fieldPath": "article", "order": "ASCENDING" },
+        { "fieldPath": "color", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "productions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "poNo", "order": "ASCENDING" },
+        { "fieldPath": "article", "order": "ASCENDING" },
+        { "fieldPath": "color", "order": "ASCENDING" },
+        { "fieldPath": "productionDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "productions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "poNo", "order": "ASCENDING" },
+        { "fieldPath": "article", "order": "ASCENDING" },
+        { "fieldPath": "color", "order": "ASCENDING" },
+        { "fieldPath": "sl", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "productions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "poNo", "order": "ASCENDING" },
+        { "fieldPath": "productionDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "productions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "poNo", "order": "ASCENDING" },
+        { "fieldPath": "sl", "order": "ASCENDING" }
       ]
     },
     {
@@ -106,6 +188,51 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "poTagNo", "order": "ASCENDING" },
+        { "fieldPath": "sl", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "issues",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "poNo", "order": "ASCENDING" },
+        { "fieldPath": "article", "order": "ASCENDING" },
+        { "fieldPath": "color", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "issues",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "poNo", "order": "ASCENDING" },
+        { "fieldPath": "article", "order": "ASCENDING" },
+        { "fieldPath": "color", "order": "ASCENDING" },
+        { "fieldPath": "issueDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "issues",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "poNo", "order": "ASCENDING" },
+        { "fieldPath": "article", "order": "ASCENDING" },
+        { "fieldPath": "color", "order": "ASCENDING" },
+        { "fieldPath": "sl", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "issues",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "poNo", "order": "ASCENDING" },
+        { "fieldPath": "issueDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "issues",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "poNo", "order": "ASCENDING" },
         { "fieldPath": "sl", "order": "ASCENDING" }
       ]
     },
@@ -155,6 +282,140 @@
       "fields": [
         { "fieldPath": "module", "order": "ASCENDING" },
         { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "exports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "poTagNo", "order": "ASCENDING" },
+        { "fieldPath": "exportDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "exports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "poTagNo", "order": "ASCENDING" },
+        { "fieldPath": "sl", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "exports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "poNo", "order": "ASCENDING" },
+        { "fieldPath": "article", "order": "ASCENDING" },
+        { "fieldPath": "color", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "exports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "poNo", "order": "ASCENDING" },
+        { "fieldPath": "article", "order": "ASCENDING" },
+        { "fieldPath": "color", "order": "ASCENDING" },
+        { "fieldPath": "exportDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "exports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "poNo", "order": "ASCENDING" },
+        { "fieldPath": "article", "order": "ASCENDING" },
+        { "fieldPath": "color", "order": "ASCENDING" },
+        { "fieldPath": "sl", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "exports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "poNo", "order": "ASCENDING" },
+        { "fieldPath": "exportDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "exports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "poNo", "order": "ASCENDING" },
+        { "fieldPath": "sl", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "master_lc",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "purchase_orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cuttings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cuttingDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cuttings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "factoryName", "order": "ASCENDING" },
+        { "fieldPath": "cuttingDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sewings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sewingDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sewings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "factoryName", "order": "ASCENDING" },
+        { "fieldPath": "sewingDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "productions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "productionDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "productions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "factoryName", "order": "ASCENDING" },
+        { "fieldPath": "productionDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "issues",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "issueDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "exports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "exportDate", "order": "DESCENDING" }
       ]
     }
   ],

@@ -5,5 +5,11 @@ class CustomDataTable extends StatelessWidget {
   final List<DataColumn> columns;
   final List<DataRow> rows;
   @override
-  Widget build(BuildContext context) => DataTable(columns: columns, rows: rows);
+  Widget build(BuildContext context) => Card(
+    clipBehavior: Clip.antiAlias,
+    child: SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(columns: columns, rows: rows),
+    ),
+  );
 }

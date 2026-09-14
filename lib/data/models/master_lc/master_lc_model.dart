@@ -19,16 +19,18 @@ class MasterLCModel extends MasterLCEntity {
     final d = s.data() ?? {};
     return MasterLCModel(
       id: s.id,
-      sl: d['sl'] as int? ?? 0,
+      // Legacy / Sheets-imported rows may store numbers as strings, so parse
+      // defensively instead of casting — a bare `as int` throws here.
+      sl: _int(d['sl']),
       masterLcDate: _date(d['masterLcDate']) ?? DateTime.now(),
-      tagNo: d['tagNo'] as String? ?? '',
-      project: d['project'] as String? ?? '',
-      company: d['company'] as String? ?? '',
-      scNo: d['scNo'] as String? ?? '',
-      lcNo: d['lcNo'] as String? ?? '',
-      ttNo: d['ttNo'] as String? ?? '',
-      masterLcQuantity: d['masterLcQuantity'] as int? ?? 0,
-      masterLcValue: (d['masterLcValue'] as num? ?? 0).toDouble(),
+      tagNo: _string(d['tagNo']),
+      project: _string(d['project']),
+      company: _string(d['company']),
+      scNo: _string(d['scNo']),
+      lcNo: _string(d['lcNo']),
+      ttNo: _string(d['ttNo']),
+      masterLcQuantity: _int(d['masterLcQuantity']),
+      masterLcValue: _double(d['masterLcValue']),
     );
   }
   factory MasterLCModel.fromEntity(MasterLCEntity e) => MasterLCModel(
@@ -62,5 +64,20 @@ class MasterLCModel extends MasterLCEntity {
       ? v.toDate()
       : v is DateTime
       ? v
+      : v is String
+      ? DateTime.tryParse(v)
       : null;
+
+  /// Numbers may arrive as strings (Sheets imports), and text fields as numbers.
+  /// Everything is coerced through `toString()` rather than cast, so a legacy
+  /// document can never throw a cast error here.
+  static String _string(Object? value) => value?.toString().trim() ?? '';
+
+  static int _int(Object? value) => value is num
+      ? value.toInt()
+      : int.tryParse(value?.toString().trim() ?? '') ?? 0;
+
+  static double _double(Object? value) => value is num
+      ? value.toDouble()
+      : double.tryParse(value?.toString().trim() ?? '') ?? 0;
 }

@@ -5,49 +5,180 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function activeUser() {
+    // True when the caller has a real `users/{uid}` profile document.
+    //
+    // `exists()` MUST be checked before `get(...)` reaches into `.data`:
+    // evaluating `get(...).data` on a missing document raises an evaluation
+    // error, which Firestore reports to the client as the very same
+    // "Missing or insufficient permissions" as a genuine denial. Guarding here
+    // keeps a missing profile an explicit, diagnosable deny instead of an
+    // ambiguous one.
+    function hasProfile() {
       return signedIn()
-          && get(/databases/$(database)/documents/users/$(request.auth.uid))
-              .data.isActive == true;
+          && exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
-    function admin() {
-      return activeUser()
-          && get(/databases/$(database)/documents/users/$(request.auth.uid))
-              .data.role == 'admin';
+    // Profile fields are read defensively: a profile created by a partial
+    // writer (console, import, first-admin bootstrap) may omit `role`,
+    // `isActive` or `permissions` entirely, and reading a missing key raises
+    // the same evaluation error described above. Every access is therefore
+    // behind an `in` check with a documented default.
+    function userData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // A profile is active when it explicitly says so, or when the flag is
+    // absent (legacy/partial documents default to active). An explicit
+    // `isActive: false` always denies.
+    function isActive() {
+      return hasProfile()
+          && (!('isActive' in userData()) || userData().isActive == true);
+    }
+
+    function isAdmin() {
+      return isActive()
+          && ('role' in userData())
+          && userData().role == 'admin';
+    }
+
+    function moduleFor(collection) {
+      return collection == 'master_lc' ? 'master_lc'
+          : collection == 'purchase_orders' ? 'purchase_order'
+          : collection == 'cuttings' ? 'cutting'
+          : collection == 'sewings' ? 'sewing'
+          : collection == 'productions' ? 'production'
+          : collection == 'issues' ? 'issue'
+          : collection == 'exports' ? 'export'
+          : collection == 'settings' ? 'settings'
+          : collection == 'users' ? 'user_management'
+          : collection == 'roles' ? 'role_management'
+          : collection == 'audit_logs' ? 'audit_log'
+          : '';
+    }
+
+    function isBusinessCollection(collection) {
+      return collection in [
+        'master_lc',
+        'purchase_orders',
+        'cuttings',
+        'sewings',
+        'productions',
+        'issues',
+        'exports'
+      ];
+    }
+
+    // Admins implicitly hold every permission. For everyone else the nested
+    // `permissions` map is walked defensively at every level: the map itself,
+    // the module entry and the action flag may each be absent, and a missing
+    // key must degrade to "not granted" rather than raising an evaluation
+    // error (which surfaces as an ambiguous permission failure).
+    function hasPermission(module, action) {
+      return isActive()
+          && (
+            isAdmin()
+            || (
+              ('permissions' in userData())
+              && userData().permissions != null
+              && (module in userData().permissions)
+              && userData().permissions[module] != null
+              && (action in userData().permissions[module])
+              && userData().permissions[module][action] == true
+            )
+          );
     }
 
     match /users/{userId} {
-      allow create: if signedIn() && request.auth.uid == userId;
-      allow read: if activeUser() && (request.auth.uid == userId || admin());
-      allow update: if admin()
-          || (activeUser()
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == userId);
+
+      // Self-registration. The client may only ever create its OWN profile and
+      // only as an unconditional `viewer` with no permissions — self-promotion
+      // to admin/editor is impossible here.
+      allow create: if signedIn()
+          && request.auth.uid == userId
+          && request.resource.data.role == 'viewer'
+          && request.resource.data.isActive == true
+          && (!('permissions' in request.resource.data)
+              || request.resource.data.permissions.size() == 0)
+          && request.resource.data.displayName is string
+          && request.resource.data.email is string;
+
+      // First-admin bootstrap.
+      //
+      // A brand-new Firebase project has no way to obtain its first admin: the
+      // account exists in Firebase Auth but has no `users/{uid}` profile, so
+      // every rule denies and the console-created user is locked out
+      // permanently. This clause lets an authenticated account create its OWN
+      // profile as admin, but ONLY while no such profile exists yet — i.e.
+      // exactly once, during initial setup.
+      //
+      // The `!exists()` guard is what bounds this to a single use. Once the
+      // profile exists this clause can never fire again, so it cannot be used
+      // for later privilege escalation, and no marker field is needed. The
+      // profile is written in one shot (see AuthRemoteDataSource), so there is
+      // deliberately no `bootstrap` flag to clean up.
+      allow create: if signedIn()
+          && request.auth.uid == userId
+          && request.resource.data.role == 'admin'
+          && request.resource.data.isActive == true
+          && !exists(/databases/$(database)/documents/users/$(request.auth.uid));
+
+      allow update: if isAdmin()
+          || (signedIn()
               && request.auth.uid == userId
               && request.resource.data.diff(resource.data).affectedKeys()
-                  .hasOnly(['lastLogin']));
-      allow delete: if admin();
+                  .hasOnly(['lastLogin', 'displayName'])
+              && request.resource.data.displayName is string
+              && request.resource.data.displayName.size() > 0);
+      allow delete: if isAdmin();
     }
 
+    // A user's presentation preferences are private to that user. This
+    // separate nested match is required because matches do not cascade to
+    // subcollections in Firestore rules.
+    match /users/{userId}/preferences/{preferenceId} {
+      allow read, create, update, delete: if isActive()
+          && request.auth.uid == userId;
+    }
+
+    // Shared master settings are visible to active users, while only admins
+    // can make changes to the business configuration.
+    match /settings/business {
+      allow read: if isActive();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Role definitions are readable by any active user (the User Management and
+    // Role Management screens list roles for non-admin viewers), but only an
+    // admin may define, change or delete them.
     match /roles/{roleId} {
-      allow read, write: if admin();
+      allow read: if isActive();
+      allow create, update, delete: if isAdmin();
     }
 
     match /audit_logs/{logId} {
-      allow create: if activeUser();
-      allow read, update, delete: if admin();
+      allow read: if hasPermission('audit_log', 'view');
+      allow create: if isActive();
+      allow update, delete: if false;
     }
 
-    match /{collection}/{documentId} {
-      allow read, write: if activeUser()
-          && collection in [
-            'master_lc',
-            'purchase_orders',
-            'cuttings',
-            'sewings',
-            'productions',
-            'issues',
-            'exports'
-          ];
+    // Sequence documents backing the auto-generated Sl. fields. Every module's
+    // create transaction increments one of these inside the same commit as the
+    // record write, so any signed-in active user must be able to read and write
+    // them regardless of per-module permissions.
+    match /_counters/{counterId} {
+      allow read, write: if isActive();
+    }
+
+    match /{collection}/{docId} {
+      allow read: if isBusinessCollection(collection)
+          && hasPermission(moduleFor(collection), 'view');
+      allow create: if isBusinessCollection(collection)
+          && hasPermission(moduleFor(collection), 'create');
+      allow update: if isBusinessCollection(collection)
+          && hasPermission(moduleFor(collection), 'edit');
+      allow delete: if isBusinessCollection(collection)
+          && hasPermission(moduleFor(collection), 'delete');
     }
   }
 }

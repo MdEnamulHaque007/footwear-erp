@@ -13,8 +13,11 @@ class CreateProductionUseCase {
       poTagNo: item.poTagNo,
       productionDate: item.productionDate,
       candidateQuantity: item.quantity,
+      poNo: item.poNo,
+      article: item.article,
+      color: item.color,
     );
     if (error != null) return Left(error);
-    return _repository.createProduction(item);
+    return _repository.createWithTransaction(item);
   }
 }

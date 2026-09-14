@@ -1,0 +1,100 @@
+/// A distinct `article` + `color` pair read from the Issue entries of a PO.
+///
+/// Used to drive the Export form's Article → Color cascading dropdowns so only
+/// lines that have actually been issued can be exported.
+class IssueLine {
+  const IssueLine({required this.article, required this.color});
+
+  final String article;
+  final String color;
+
+  @override
+  bool operator ==(Object other) =>
+      other is IssueLine &&
+      other.article.toLowerCase() == article.toLowerCase() &&
+      other.color.toLowerCase() == color.toLowerCase();
+
+  @override
+  int get hashCode => Object.hash(article.toLowerCase(), color.toLowerCase());
+}
+
+/// An Export (shipment) entry.
+///
+/// Export is PO-line driven: an entry records how many pieces of one
+/// `poNo` + `article` + `color` line were exported on [exportDate]. Its quantity
+/// is validated against the cumulative Issue quantity completed on or before
+/// that date. `poTagNo` and `quantity` stay as the canonical stored fields so
+/// older Firestore records and the reporting chain keep working.
+class ExportEntity {
+  const ExportEntity({
+    this.id,
+    required this.sl,
+    required this.voucherNo,
+    required this.exportDate,
+    required this.poTagNo,
+    required this.quantity,
+    required this.entryPerson,
+    this.poNo = '',
+    this.tagNo = '',
+    this.company = '',
+    this.project = '',
+    this.article = '',
+    this.color = '',
+    this.factoryName = '',
+    this.unitPrice = 0,
+    this.exportValue = 0,
+    this.issueQuantity = 0,
+    this.availableQuantity = 0,
+    this.remarks = '',
+    this.source,
+    this.syncStatus,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  final String? id;
+  final int sl;
+  final String voucherNo;
+  final DateTime exportDate;
+
+  /// PO tag. Kept as the identity used by legacy records and reporting.
+  final String poTagNo;
+
+  /// Legacy alias of the exported quantity (== [quantity]).
+  final int quantity;
+
+  final String entryPerson;
+  final String poNo;
+  final String tagNo;
+  final String company;
+  final String project;
+  final String article;
+  final String color;
+  final String factoryName;
+
+  /// Unit price taken from the PO line, used to auto-calculate [exportValue].
+  final double unitPrice;
+
+  /// Auto-calculated value persisted for reporting (Quantity × Unit Price).
+  final double exportValue;
+
+  /// Cumulative Issue quantity completed on or before [exportDate].
+  final int issueQuantity;
+
+  /// Issue − previous Export for this PO line, captured at save time.
+  final int availableQuantity;
+
+  final String remarks;
+
+  /// Origin of the record: `manual` (app form) or `google_sheets` (import).
+  final String? source;
+
+  /// Sync state of imported records, e.g. `synced`.
+  final String? syncStatus;
+
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  /// Tag shown in tables: [tagNo] with a [poTagNo] fallback.
+  String get effectiveTagNo => tagNo.isNotEmpty ? tagNo : poTagNo;
+}

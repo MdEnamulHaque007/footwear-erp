@@ -68,4 +68,39 @@ class POEntity {
   double get totalValue =>
       effectiveLineItems.fold(0, (sum, item) => sum + item.poValue);
   double get poValue => totalValue;
+
+  /// Returns a copy with the provided fields replaced.
+  ///
+  /// Used by [CreatePOUseCase] to normalise the Sl. to the "unassigned"
+  /// sentinel before the repository allocates the real sequence number (SRS
+  /// Rule 1: the Sl. is auto-generated, never caller-supplied).
+  POEntity copyWith({
+    String? id,
+    int? sl,
+    DateTime? poDate,
+    String? tagNo,
+    String? company,
+    String? project,
+    String? brand,
+    String? poNo,
+    String? entryPerson,
+    List<POLineItemEntity>? lineItems,
+  }) => POEntity(
+    id: id ?? this.id,
+    sl: sl ?? this.sl,
+    poDate: poDate ?? this.poDate,
+    tagNo: tagNo ?? this.tagNo,
+    company: company ?? this.company,
+    project: project ?? this.project,
+    brand: brand ?? this.brand,
+    poNo: poNo ?? this.poNo,
+    entryPerson: entryPerson ?? this.entryPerson,
+    lineItems: lineItems ?? this.lineItems,
+    article: article,
+    color: color,
+    poQuantity: poQuantity,
+    unitPrice: unitPrice,
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+  );
 }

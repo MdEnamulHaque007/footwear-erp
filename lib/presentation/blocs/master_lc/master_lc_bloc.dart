@@ -5,7 +5,10 @@ import '../../../domain/usecases/master_lc/delete_master_lc_usecase.dart';
 import '../../../domain/usecases/master_lc/get_master_lc_list_usecase.dart';
 import '../../../domain/usecases/master_lc/update_master_lc_usecase.dart';
 import '../../../domain/usecases/master_lc/get_master_lc_by_id_usecase.dart';
+import '../../../domain/usecases/master_lc/get_company_list_usecase.dart';
+import '../../../domain/usecases/master_lc/get_project_list_usecase.dart';
 import '../../../domain/usecases/purchase_order/get_po_by_tag_usecase.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../domain/entities/master_lc_entity.dart';
 import 'master_lc_event.dart';
 import 'master_lc_state.dart';
@@ -18,6 +21,8 @@ class MasterLCBloc extends Bloc<MasterLCEvent, MasterLCState> {
     required this.delete,
     this.getById,
     this.getPOByTag,
+    this.getProjects,
+    this.getCompanies,
   }) : super(MasterLCInitial()) {
     on<LoadMasterLCList>((event, emit) async {
       _currentPage = 0;
@@ -28,22 +33,49 @@ class MasterLCBloc extends Bloc<MasterLCEvent, MasterLCState> {
       result.fold((error) => emit(MasterLCError(error)), (items) {
         _items = items;
         _hasMore = items.length == event.limit;
-        emit(MasterLCLoaded(_items));
+        emit(
+          MasterLCLoaded(_items, hasMore: _hasMore, currentPage: _currentPage),
+        );
       });
     });
 
     on<LoadMoreMasterLC>((event, emit) async {
       if (!_hasMore || _isLoadingMore) return;
       _isLoadingMore = true;
-      _currentPage++;
+      // Retain the rows already on screen behind the footer spinner.
+      final previousItems = List<MasterLCEntity>.from(_items);
+      emit(MasterLCLoadingMore(previousItems, currentPage: _currentPage));
       try {
-        final result = await getList(page: _currentPage, limit: 20);
+        final result = await getList(page: _currentPage + 1, limit: 20);
         if (emit.isDone) return;
-        result.fold((error) => emit(MasterLCError(error)), (items) {
-          _items.addAll(items);
-          _hasMore = items.length == 20;
-          emit(MasterLCLoaded(List.from(_items)));
-        });
+        result.fold(
+          (error) {
+            // Keep the previous rows visible and disable the trigger so a failed
+            // page cannot re-fire on every scroll frame; Refresh re-arms it.
+            _hasMore = false;
+            emit(
+              MasterLCError(
+                '$error\nPull to refresh or tap Retry to try again.',
+              ),
+            );
+          },
+          (items) {
+            _currentPage++;
+            _items.addAll(items);
+            _hasMore = items.length == 20;
+            emit(
+              MasterLCLoaded(
+                List.from(_items),
+                hasMore: _hasMore,
+                currentPage: _currentPage,
+              ),
+            );
+          },
+        );
+      } catch (error) {
+        if (emit.isDone) return;
+        _hasMore = false;
+        emit(MasterLCError('$error\nPull to refresh or tap Retry to try again.'));
       } finally {
         _isLoadingMore = false;
       }
@@ -119,6 +151,39 @@ class MasterLCBloc extends Bloc<MasterLCEvent, MasterLCState> {
         },
       );
     });
+
+    // Predefined Project / Company lists for the form dropdowns: the hardcoded
+    // SRS seed values merged with whatever is already saved in Firestore, so
+    // the list grows with real data (Option A + C hybrid).
+    on<LoadPredefinedLists>((event, emit) async {
+      final projects = <String>{...AppConstants.predefinedProjects};
+      final companies = <String>{...AppConstants.predefinedCompanies};
+      final projectsResult = await getProjects?.call();
+      if (emit.isDone) return;
+      projectsResult?.fold((_) {}, (values) => projects.addAll(values));
+      final companiesResult = await getCompanies?.call();
+      if (emit.isDone) return;
+      companiesResult?.fold((_) {}, (values) => companies.addAll(values));
+      emit(
+        PredefinedListsLoaded(
+          projects: _sorted(projects),
+          companies: _sorted(companies),
+        ),
+      );
+    });
+  }
+
+  /// Case-insensitive dedupe, sorted, original casing of the first occurrence.
+  static List<String> _sorted(Iterable<String> values) {
+    final seen = <String>{};
+    final result = <String>[];
+    for (final value in values) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) continue;
+      if (seen.add(trimmed.toLowerCase())) result.add(trimmed);
+    }
+    result.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return result;
   }
 
   final GetMasterLCListUseCase getList;
@@ -127,6 +192,8 @@ class MasterLCBloc extends Bloc<MasterLCEvent, MasterLCState> {
   final DeleteMasterLCUseCase delete;
   final GetMasterLCByIdUseCase? getById;
   final GetPOByTagUseCase? getPOByTag;
+  final GetProjectListUseCase? getProjects;
+  final GetCompanyListUseCase? getCompanies;
 
   int _currentPage = 0;
   bool _hasMore = true;

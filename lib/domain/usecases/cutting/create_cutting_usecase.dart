@@ -3,6 +3,7 @@ import '../../entities/cutting_entity.dart';
 import '../../repositories/i_cutting_repository.dart';
 import 'validate_cutting_quantity_usecase.dart';
 
+/// Creates a Cutting entry after validating the available PO quantity.
 class CreateCuttingUseCase {
   CreateCuttingUseCase(this._repository, [this._validate]);
   final ICuttingRepository _repository;
@@ -22,6 +23,6 @@ class CreateCuttingUseCase {
         return validation.fold(Left.new, (_) => const Right(null));
       }
     }
-    return _repository.createCutting(item);
+    return _repository.createWithTransaction(item);
   }
 }

@@ -26,6 +26,10 @@ class AuthRepository implements IAuthRepository {
   Future<void> resetPassword(String email) => _dataSource.resetPassword(email);
 
   @override
+  Future<UserEntity> updateDisplayName(String displayName) =>
+      _dataSource.updateDisplayName(displayName);
+
+  @override
   Stream<UserEntity?> get authStateChanges => _dataSource.authStateChanges;
 
   static String messageFor(FirebaseAuthException error) {

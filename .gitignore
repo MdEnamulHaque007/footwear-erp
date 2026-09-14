@@ -52,6 +52,14 @@ serviceAccountKey.json
 firebase-debug.log
 .firebase/
 
+# 🔴 DEV-ONLY auth-bypass artifacts — open Firestore rules and the emulator
+# config that references them. NEVER commit and NEVER deploy these.
+firestore.dev.rules
+firebase.dev.json
+
+# Local snapshot of the currently deployed rules (restore source while testing)
+firestore.rules.backup
+
 # Android signing
 *.jks
 *.keystore

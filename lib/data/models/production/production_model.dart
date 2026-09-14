@@ -10,7 +10,20 @@ class ProductionModel extends ProductionEntity {
     required super.poTagNo,
     required super.quantity,
     required super.entryPerson,
+    super.poNo,
+    super.tagNo,
+    super.company,
+    super.project,
+    super.article,
+    super.color,
+    super.factoryName,
+    super.unitPrice,
+    super.productionValue,
+    super.sewingQuantity,
+    super.availableQuantity,
     super.remarks,
+    super.source,
+    super.syncStatus,
     super.createdAt,
     super.updatedAt,
   });
@@ -23,7 +36,20 @@ class ProductionModel extends ProductionEntity {
     poTagNo: e.poTagNo,
     quantity: e.quantity,
     entryPerson: e.entryPerson,
+    poNo: e.poNo,
+    tagNo: e.tagNo,
+    company: e.company,
+    project: e.project,
+    article: e.article,
+    color: e.color,
+    factoryName: e.factoryName,
+    unitPrice: e.unitPrice,
+    productionValue: e.productionValue,
+    sewingQuantity: e.sewingQuantity,
+    availableQuantity: e.availableQuantity,
     remarks: e.remarks,
+    source: e.source,
+    syncStatus: e.syncStatus,
     createdAt: e.createdAt,
     updatedAt: e.updatedAt,
   );
@@ -32,15 +58,30 @@ class ProductionModel extends ProductionEntity {
     DocumentSnapshot<Map<String, dynamic>> s,
   ) {
     final d = s.data() ?? {};
+    final poTagNo = _string(d['poTagNo']);
+    final quantity = _int(d['quantity'] ?? d['productionQuantity']);
     return ProductionModel(
       id: s.id,
-      sl: d['sl'] as int? ?? 0,
-      voucherNo: d['voucherNo'] as String? ?? '',
+      sl: _int(d['sl']),
+      voucherNo: _string(d['voucherNo']),
       productionDate: _date(d['productionDate']) ?? DateTime.now(),
-      poTagNo: d['poTagNo'] as String? ?? '',
-      quantity: d['quantity'] as int? ?? 0,
-      entryPerson: d['entryPerson'] as String? ?? '',
-      remarks: d['remarks'] as String? ?? '',
+      poTagNo: poTagNo,
+      quantity: quantity,
+      entryPerson: _string(d['entryPerson']),
+      poNo: _string(d['poNo']),
+      tagNo: _string(d['tagNo'] ?? poTagNo),
+      company: _string(d['company']),
+      project: _string(d['project']),
+      article: _string(d['article']),
+      color: _string(d['color']),
+      factoryName: _string(d['factoryName']),
+      unitPrice: _double(d['unitPrice']),
+      productionValue: _double(d['productionValue']),
+      sewingQuantity: _int(d['sewingQuantity']),
+      availableQuantity: _int(d['availableQuantity']),
+      remarks: _string(d['remarks']),
+      source: d['source'] as String?,
+      syncStatus: d['syncStatus'] as String?,
       createdAt: _date(d['createdAt']),
       updatedAt: _date(d['updatedAt']),
     );
@@ -51,18 +92,44 @@ class ProductionModel extends ProductionEntity {
     'voucherNo': voucherNo,
     'productionDate': Timestamp.fromDate(productionDate),
     'poTagNo': poTagNo,
+    'tagNo': effectiveTagNo,
     'quantity': quantity,
+    'productionQuantity': quantity,
     'entryPerson': entryPerson,
+    'poNo': poNo,
+    'company': company,
+    'project': project,
+    'article': article,
+    'color': color,
+    'factoryName': factoryName,
+    'unitPrice': unitPrice,
+    'productionValue': productionValue,
+    'sewingQuantity': sewingQuantity,
+    'availableQuantity': availableQuantity,
     'remarks': remarks,
     'createdAt': createdAt == null
         ? Timestamp.now()
         : Timestamp.fromDate(createdAt!),
-    if (updatedAt != null) 'updatedAt': Timestamp.fromDate(updatedAt!),
+    'updatedAt': Timestamp.now(),
+    'source': source ?? 'manual',
+    'syncStatus': syncStatus ?? 'synced',
   };
 
-  static DateTime? _date(Object? v) => v is Timestamp
-      ? v.toDate()
-      : v is DateTime
-      ? v
-      : null;
+  static String _string(Object? value) => value?.toString().trim() ?? '';
+
+  static int _int(Object? value) => value is num
+      ? value.toInt()
+      : int.tryParse(value?.toString().trim() ?? '') ?? 0;
+
+  static double _double(Object? value) => value is num
+      ? value.toDouble()
+      : double.tryParse(value?.toString().trim() ?? '') ?? 0;
+
+  static DateTime? _date(Object? value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
+    return null;
+  }
 }
+

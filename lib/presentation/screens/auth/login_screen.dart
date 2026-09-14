@@ -76,7 +76,7 @@ class _LoginScreenState extends State<LoginScreen> {
               onPressed: () => context.go('/reset-password'),
               child: const Text('Forgot password?'),
             ),
-            if (DevConfig.enabled) ...[
+            if (DevConfig.bypassAuth) ...[
               const Divider(height: 32),
               OutlinedButton.icon(
                 onPressed: () =>

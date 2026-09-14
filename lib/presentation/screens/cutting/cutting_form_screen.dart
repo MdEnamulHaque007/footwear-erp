@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/constants/app_constants.dart';
 import '../../../domain/entities/cutting_entity.dart';
+import '../../../domain/usecases/cutting/get_next_voucher_no_usecase.dart';
 import '../../blocs/cutting/cutting_bloc.dart';
 import '../../blocs/cutting/cutting_event.dart';
 import '../../blocs/cutting/cutting_state.dart';
@@ -34,8 +35,6 @@ class _CuttingFormScreenState extends State<CuttingFormScreen> {
   void initState() {
     super.initState();
     final date = DateTime.now();
-    voucher.text =
-        '${AppConstants.cuttingVoucherPrefix}-${date.year}${date.month.toString().padLeft(2, '0')}${date.day.toString().padLeft(2, '0')}-${date.millisecondsSinceEpoch.toString().substring(8)}';
     cuttingDate = date;
     cuttingDateController.text = _formatDate(date);
     final item = widget.initialItem;
@@ -60,6 +59,7 @@ class _CuttingFormScreenState extends State<CuttingFormScreen> {
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<CuttingBloc>().add(LoadPONoList());
+      if (widget.initialItem == null) _loadVoucher(date);
     });
   }
 
@@ -84,10 +84,12 @@ class _CuttingFormScreenState extends State<CuttingFormScreen> {
     if (_isSubmitting) return;
     final selectedPO = poNo, selectedArticle = article, selectedColor = color;
     final qty = int.tryParse(quantity.text) ?? 0;
-    if (cuttingDate == null) {
+    if (cuttingDate == null || voucher.text.trim().isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Please select a date')));
+      ).showSnackBar(
+        const SnackBar(content: Text('Please wait for voucher generation')),
+      );
       return;
     }
     if (selectedPO == null ||
@@ -113,7 +115,6 @@ class _CuttingFormScreenState extends State<CuttingFormScreen> {
     setState(() => _isSubmitting = true);
     final item = CuttingEntity(
       id: widget.initialItem?.id,
-      sl: widget.initialItem?.sl ?? DateTime.now().millisecondsSinceEpoch,
       voucherNo: voucher.text.trim(),
       cuttingDate: cuttingDate!,
       poNo: selectedPO,
@@ -145,8 +146,21 @@ class _CuttingFormScreenState extends State<CuttingFormScreen> {
       setState(() {
         cuttingDate = selected;
         cuttingDateController.text = _formatDate(selected);
+        if (widget.initialItem == null) voucher.clear();
       });
+      if (widget.initialItem == null) _loadVoucher(selected);
     }
+  }
+
+  Future<void> _loadVoucher(DateTime date) async {
+    final result = await GetIt.I<GetNextVoucherNoUseCase>()(date);
+    if (!mounted || cuttingDate != date) return;
+    result.fold(
+      (error) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error)),
+      ),
+      (value) => setState(() => voucher.text = value),
+    );
   }
 
   String _formatDate(DateTime value) =>

@@ -1,24 +1,8 @@
 ﻿import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/constants/app_constants.dart';
-import '../../../core/theme/color_palette.dart';
-import '../../blocs/auth/auth_bloc.dart';
-import '../../blocs/auth/auth_state.dart';
-import '../../blocs/dashboard/dashboard_bloc.dart';
-import '../../blocs/dashboard/dashboard_event.dart';
-import '../../blocs/dashboard/dashboard_state.dart';
 import '../../routes/route_constants.dart';
 import '../../widgets/app_drawer.dart';
-import 'widgets/comparison/comparison_animation_widget.dart';
-import 'widgets/factory_comparison_chart.dart';
-import 'widgets/kpi_grid_widget.dart';
-import 'widgets/module_distribution_chart.dart';
-import 'widgets/production_trend_chart.dart';
-import 'widgets/quick_actions_widget.dart';
-import 'widgets/quick_stats_widget.dart';
-import 'widgets/recent_activities_widget.dart';
 import 'widgets/welcome_header_widget.dart';
 
 /// The dashboard: nine sections assembled from one [DashboardLoaded] snapshot.
@@ -31,26 +15,11 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<DashboardBloc>().add(DashboardStarted());
-    });
-  }
-
-  Future<void> _refresh() async {
-    context.read<DashboardBloc>().add(RefreshDashboard());
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final authState = context.watch<AuthBloc>().state;
-    final role = authState is Authenticated ? authState.user.role : 'viewer';
-
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
-        title: const Text(AppConstants.appName),
-        leadingWidth: 96,
+        title: const Text('Dashboard'),
         leading: Builder(
           builder: (context) => IconButton(
             tooltip: 'Menu',
@@ -60,46 +29,71 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Time-Lapse Report',
-            icon: const Icon(Icons.timeline_outlined),
-            onPressed: () => context.go(RouteConstants.timelapseDashboard),
+            tooltip: 'Notifications',
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () => context.push('/settings/notifications'),
           ),
-          IconButton(
-            tooltip: 'Refresh',
-            icon: const Icon(Icons.refresh),
-            onPressed: _refresh,
-          ),
-          if (role == 'admin')
-            IconButton(
-              tooltip: 'Admin',
-              icon: const Icon(Icons.admin_panel_settings),
-              onPressed: () => context.go('/admin'),
-            ),
           IconButton(
             tooltip: 'Profile',
             icon: const Icon(Icons.person_outline),
-            onPressed: () => context.go(RouteConstants.profile),
+            onPressed: () => context.push(RouteConstants.profile),
           ),
         ],
       ),
-      drawer: const AppDrawer(),
-      body: BlocBuilder<DashboardBloc, DashboardState>(
-        builder: (context, state) => switch (state) {
-          // Partial must precede Loaded: DashboardPartialLoaded extends
-          // DashboardLoaded, so the narrower type has to match first.
-          DashboardPartialLoaded() => _content(state, warning: state.warning),
-          DashboardLoaded() => _content(state),
-          DashboardError(:final message) => _ErrorView(
-            message: message,
-            onRetry: _refresh,
+      body: LayoutBuilder(
+        builder: (context, constraints) => ListView(
+          padding: EdgeInsets.fromLTRB(
+            constraints.maxWidth >= 760 ? 32 : 16,
+            20,
+            constraints.maxWidth >= 760 ? 32 : 16,
+            48,
           ),
-          DashboardInitial() => const _Skeleton(),
-          DashboardLoading() => const _Skeleton(),
-        },
+          children: [
+            const WelcomeHeaderWidget(),
+            const SizedBox(height: 24),
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => context.push(RouteConstants.timelapseDashboard),
+                child: const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 28,
+                        child: Icon(Icons.movie_creation_outlined, size: 30),
+                      ),
+                      SizedBox(width: 18),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '🎬 Time-Lapse Report',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text('Watch your production data come alive'),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.arrow_forward_ios, size: 18),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+}
 
+  /* Legacy dashboard sections intentionally disabled.
   /// The nine dashboard sections, top to bottom.
   Widget _content(DashboardLoaded state, {String? warning}) => RefreshIndicator(
     onRefresh: _refresh,
@@ -261,3 +255,4 @@ class _ErrorView extends StatelessWidget {
     ),
   );
 }
+*/

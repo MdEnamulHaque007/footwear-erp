@@ -9,6 +9,7 @@ class RouteConstants {
   static const reports = '/reports';
   static const productionReport = '/reports/production';
   static const finishedGoodsReport = '/reports/finished-goods';
+  static const warehouseReport = '/reports/warehouse';
   static const auditLog = '/audit-log';
   static const settings = '/settings';
   static const profile = '/profile';

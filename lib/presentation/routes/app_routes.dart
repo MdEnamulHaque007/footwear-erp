@@ -37,6 +37,7 @@ import '../screens/export/export_detail_screen.dart';
 import '../screens/reports/reports_screen.dart';
 import '../screens/reports/production_report_screen.dart';
 import '../screens/reports/finished_goods_report_screen.dart';
+import '../screens/reports/warehouse_report_screen.dart';
 import '../screens/audit/audit_log_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/settings/settings_screen.dart';
@@ -61,7 +62,6 @@ import '../blocs/user_management/user_management_event.dart';
 import '../blocs/role_management/role_management_bloc.dart';
 import '../blocs/role_management/role_management_event.dart';
 import '../blocs/master_lc/master_lc_bloc.dart';
-import '../blocs/dashboard/dashboard_bloc.dart';
 import '../blocs/timelapse/timelapse_bloc.dart';
 import '../blocs/purchase_order/po_bloc.dart';
 import '../blocs/cutting/cutting_bloc.dart';
@@ -77,6 +77,7 @@ import '../../domain/entities/export_entity.dart';
 import '../blocs/export/export_bloc.dart';
 import '../blocs/reports/production_report_bloc.dart';
 import '../blocs/reports/finished_goods_report_bloc.dart';
+import '../blocs/reports/warehouse_report_bloc.dart';
 import '../blocs/auth/auth_bloc.dart';
 import '../blocs/settings/settings_bloc.dart';
 import '../blocs/profile/profile_bloc.dart';
@@ -105,10 +106,7 @@ class AppRoutes {
         routes: [
           GoRoute(
             path: RouteConstants.dashboard,
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<DashboardBloc>(),
-              child: const DashboardScreen(),
-            ),
+            builder: (_, _) => const DashboardScreen(),
           ),
           GoRoute(
             path: RouteConstants.timelapseDashboard,
@@ -379,6 +377,14 @@ class AppRoutes {
             builder: (_, _) => BlocProvider(
               create: (_) => GetIt.I<FinishedGoodsReportBloc>(),
               child: const FinishedGoodsReportScreen(),
+            ),
+          ),
+          GoRoute(
+            path: RouteConstants.warehouseReport,
+            name: 'warehouse-report',
+            builder: (_, _) => BlocProvider(
+              create: (_) => GetIt.I<WarehouseReportBloc>(),
+              child: const WarehouseReportScreen(),
             ),
           ),
           GoRoute(

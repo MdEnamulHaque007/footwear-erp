@@ -100,12 +100,16 @@ import '../domain/usecases/production/validate_production_quantity_usecase.dart'
 import '../data/repositories/export_repository.dart';
 import '../data/repositories/production_report_repository.dart';
 import '../data/repositories/finished_goods_report_repository.dart';
+import '../data/repositories/warehouse_report_repository.dart';
 import '../domain/repositories/i_finished_goods_report_repository.dart';
+import '../domain/repositories/i_warehouse_report_repository.dart';
 import '../domain/usecases/reports/generate_finished_goods_report_usecase.dart';
+import '../domain/usecases/reports/get_warehouse_report_usecase.dart';
 import '../domain/repositories/i_production_report_repository.dart';
 import '../domain/usecases/reports/generate_production_report_usecase.dart';
 import '../presentation/blocs/reports/production_report_bloc.dart';
 import '../presentation/blocs/reports/finished_goods_report_bloc.dart';
+import '../presentation/blocs/reports/warehouse_report_bloc.dart';
 import '../domain/repositories/i_export_repository.dart';
 import '../domain/usecases/export/create_export_usecase.dart';
 import '../domain/usecases/export/delete_export_usecase.dart';
@@ -188,6 +192,9 @@ Future<void> setupLocator() async {
   );
   getIt.registerLazySingleton<IFinishedGoodsReportRepository>(
     FinishedGoodsReportRepository.new,
+  );
+  getIt.registerLazySingleton<IWarehouseReportRepository>(
+    WarehouseReportRepository.new,
   );
   getIt.registerLazySingleton(() => LoginUseCase(getIt<IAuthRepository>()));
   getIt.registerLazySingleton(() => RegisterUseCase(getIt<IAuthRepository>()));
@@ -579,6 +586,9 @@ Future<void> setupLocator() async {
       getIt<IFinishedGoodsReportRepository>(),
     ),
   );
+  getIt.registerLazySingleton(
+    () => GetWarehouseReportUseCase(getIt<IWarehouseReportRepository>()),
+  );
   getIt.registerFactory(
     () => CuttingBloc(
       getList: getIt<GetCuttingListUseCase>(),
@@ -660,6 +670,11 @@ Future<void> setupLocator() async {
   getIt.registerFactory(
     () => FinishedGoodsReportBloc(
       generate: getIt<GenerateFinishedGoodsReportUseCase>(),
+    ),
+  );
+  getIt.registerFactory(
+    () => WarehouseReportBloc(
+      getReport: getIt<GetWarehouseReportUseCase>(),
     ),
   );
   getIt.registerFactory(

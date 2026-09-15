@@ -87,6 +87,12 @@ class AppDrawer extends StatelessWidget {
                     ]),
                   _section(context, 'REPORTS & ANALYTICS', [
                     _item(context, 'Reports', Icons.bar_chart, '/reports'),
+                    _item(
+                      context,
+                      'Production Warehouse Report',
+                      Icons.warehouse_outlined,
+                      RouteConstants.warehouseReport,
+                    ),
                     if (isAdmin)
                       _item(context, 'Audit Log', Icons.history, '/audit-log'),
                   ]),

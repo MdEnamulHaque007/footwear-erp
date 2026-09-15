@@ -1,5 +1,7 @@
 import 'package:dartz/dartz.dart';
 import '../entities/dashboard/comparison_data_entity.dart';
+import '../entities/dashboard/comparison_matrix_entity.dart';
+import '../entities/dashboard/criteria_option_entity.dart';
 import '../entities/dashboard/dashboard_activity_entity.dart';
 import '../entities/dashboard/dashboard_chart_data_entity.dart';
 import '../entities/dashboard/dashboard_quick_stats_entity.dart';
@@ -43,5 +45,16 @@ abstract interface class IDashboardRepository {
     required DateTime toDate,
     required String label,
     required String department,
+  });
+
+  /// Aggregates selected departments into an X by Y comparison matrix.
+  Future<Either<String, ComparisonMatrix>> getComparisonMatrix({
+    required List<String> collections,
+    required List<String> dateFields,
+    required CriteriaOption xCriteria,
+    required CriteriaOption yCriteria,
+    required ValueType valueType,
+    required DateTime fromDate,
+    required DateTime toDate,
   });
 }

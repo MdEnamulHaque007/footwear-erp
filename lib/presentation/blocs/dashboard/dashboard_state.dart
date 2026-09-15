@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../../domain/entities/dashboard/comparison_data_entity.dart';
 import '../../../domain/entities/dashboard/comparison_item_entity.dart';
+import '../../../domain/entities/dashboard/comparison_matrix_entity.dart';
 import '../../../domain/entities/dashboard/dashboard_activity_entity.dart';
 import '../../../domain/entities/dashboard/dashboard_chart_data_entity.dart';
 import '../../../domain/entities/dashboard/dashboard_quick_stats_entity.dart';
@@ -45,6 +46,9 @@ class DashboardLoaded extends DashboardState {
     this.comparisonB,
     this.comparisonInsight,
     this.comparisonResults = const [],
+    this.comparisonMatrix,
+    this.comparisonMatrixError = '',
+    this.isComparisonMatrixLoading = false,
     this.isRefreshing = false,
   });
 
@@ -67,6 +71,11 @@ class DashboardLoaded extends DashboardState {
   /// One result per selected department card (up to seven).
   final List<ComparisonResult> comparisonResults;
 
+  /// Advanced X by Y aggregate, absent until the user runs it.
+  final ComparisonMatrix? comparisonMatrix;
+  final String comparisonMatrixError;
+  final bool isComparisonMatrixLoading;
+
   /// True while a background refresh runs over already-visible data.
   final bool isRefreshing;
 
@@ -83,6 +92,9 @@ class DashboardLoaded extends DashboardState {
     Object? comparisonB = _unset,
     Object? comparisonInsight = _unset,
     List<ComparisonResult>? comparisonResults,
+    Object? comparisonMatrix = _unset,
+    String? comparisonMatrixError,
+    bool? isComparisonMatrixLoading,
     bool? isRefreshing,
   }) => DashboardLoaded(
     stats: stats ?? this.stats,
@@ -103,6 +115,12 @@ class DashboardLoaded extends DashboardState {
         ? this.comparisonInsight
         : comparisonInsight as ComparisonInsightEntity?,
     comparisonResults: comparisonResults ?? this.comparisonResults,
+    comparisonMatrix: comparisonMatrix == _unset
+        ? this.comparisonMatrix
+        : comparisonMatrix as ComparisonMatrix?,
+    comparisonMatrixError: comparisonMatrixError ?? this.comparisonMatrixError,
+    isComparisonMatrixLoading:
+        isComparisonMatrixLoading ?? this.isComparisonMatrixLoading,
     isRefreshing: isRefreshing ?? this.isRefreshing,
   );
 
@@ -118,6 +136,9 @@ class DashboardLoaded extends DashboardState {
     comparisonB,
     comparisonInsight,
     comparisonResults,
+    comparisonMatrix,
+    comparisonMatrixError,
+    isComparisonMatrixLoading,
     isRefreshing,
   ];
 }
@@ -137,6 +158,9 @@ class DashboardPartialLoaded extends DashboardLoaded {
     super.comparisonB,
     super.comparisonInsight,
     super.comparisonResults,
+    super.comparisonMatrix,
+    super.comparisonMatrixError,
+    super.isComparisonMatrixLoading,
     super.isRefreshing,
   });
 

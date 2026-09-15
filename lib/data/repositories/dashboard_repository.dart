@@ -4,6 +4,9 @@ import 'package:intl/intl.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../domain/entities/dashboard/comparison_data_entity.dart';
+import '../../domain/entities/dashboard/comparison_matrix_entity.dart';
+import '../../domain/entities/dashboard/criteria_option_entity.dart';
+import '../../domain/entities/dashboard/department_option_entity.dart';
 import '../../domain/entities/dashboard/dashboard_activity_entity.dart';
 import '../../domain/entities/dashboard/dashboard_chart_data_entity.dart';
 import '../../domain/entities/dashboard/dashboard_quick_stats_entity.dart';
@@ -491,6 +494,164 @@ class DashboardRepository implements IDashboardRepository {
     } catch (_) {
       return const Left('An unexpected error occurred');
     }
+  }
+
+  // ----------------------------------------------------- advanced matrix
+
+  @override
+  Future<Either<String, ComparisonMatrix>> getComparisonMatrix({
+    required List<String> collections,
+    required List<String> dateFields,
+    required CriteriaOption xCriteria,
+    required CriteriaOption yCriteria,
+    required ValueType valueType,
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    if (collections.isEmpty || collections.length != dateFields.length) {
+      return const Left('Select at least one valid department.');
+    }
+
+    try {
+      final from = Timestamp.fromDate(
+        DateTime(fromDate.year, fromDate.month, fromDate.day),
+      );
+      final to = Timestamp.fromDate(
+        DateTime(toDate.year, toDate.month, toDate.day, 23, 59, 59),
+      );
+      final snapshots = await Future.wait(
+        List.generate(
+          collections.length,
+          (index) => _db
+              .collection(collections[index])
+              .where(dateFields[index], isGreaterThanOrEqualTo: from)
+              .where(dateFields[index], isLessThanOrEqualTo: to)
+              // An advanced matrix only runs after an explicit user action.
+              // Keep the broader cap requested for that deliberate analysis.
+              .limit(1000)
+              .get(),
+        ),
+      );
+
+      final values = <String, Map<String, double>>{};
+      for (var index = 0; index < snapshots.length; index++) {
+        final collection = collections[index];
+        final dateField = dateFields[index];
+        for (final document in snapshots[index].docs) {
+          final data = document.data();
+          final x = _matrixCriteriaValue(
+            data,
+            xCriteria,
+            dateField: dateField,
+            collection: collection,
+          );
+          final y = _matrixCriteriaValue(
+            data,
+            yCriteria,
+            dateField: dateField,
+            collection: collection,
+          );
+          final z = valueType == ValueType.quantity
+              ? _readAnyQuantity(data)
+              : _readAnyValue(data);
+          values.putIfAbsent(x, () => <String, double>{});
+          values[x]![y] = (values[x]![y] ?? 0) + z;
+        }
+      }
+
+      final xLabels = values.keys.toList()..sort();
+      final yLabels = values.values
+          .expand((row) => row.keys)
+          .toSet()
+          .toList()
+        ..sort();
+      final data = [
+        for (final y in yLabels)
+          [for (final x in xLabels) values[x]?[y] ?? 0],
+      ];
+
+      return Right(
+        ComparisonMatrix(
+          xCriteria: xCriteria,
+          yCriteria: yCriteria,
+          valueType: valueType,
+          fromDate: fromDate,
+          toDate: toDate,
+          xLabels: xLabels,
+          yLabels: yLabels,
+          data: data,
+        ),
+      );
+    } on FirebaseException catch (error) {
+      return Left('Database error: ${error.message}');
+    } catch (_) {
+      return const Left('Unable to build the comparison matrix.');
+    }
+  }
+
+  static String _matrixCriteriaValue(
+    Map<String, dynamic> data,
+    CriteriaOption criteria, {
+    required String dateField,
+    required String collection,
+  }) {
+    if (criteria.field == 'date') {
+      final date = _date(data[dateField]);
+      return date == null ? 'Unknown' : DateFormat('MMM yyyy').format(date);
+    }
+    if (criteria.field == 'department') {
+      return DepartmentOption.all
+          .firstWhere(
+            (option) => option.collection == collection,
+            orElse: () => const DepartmentOption(
+              label: 'Unknown',
+              collection: '',
+              dateField: '',
+              quantityField: '',
+            ),
+          )
+          .label;
+    }
+    final field = criteria.field == 'tagNo' ? 'tagNo' : criteria.field;
+    final value = criteria.field == 'tagNo'
+        ? data[field] ?? data['poTagNo']
+        : data[field];
+    return _text(value, fallback: 'Unknown');
+  }
+
+  static double _readAnyQuantity(Map<String, dynamic> data) {
+    const fields = [
+      'cuttingQuantity',
+      'sewingQuantity',
+      'productionQuantity',
+      'quantity',
+      'issueQuantity',
+      'exportQuantity',
+      'totalQuantity',
+      'masterLcQuantity',
+    ];
+    for (final field in fields) {
+      if (data[field] != null) return _double(data[field]);
+    }
+    return 0;
+  }
+
+  static double _readAnyValue(Map<String, dynamic> data) {
+    const fields = [
+      'cuttingValue',
+      'sewingValue',
+      'productionValue',
+      'issueValue',
+      'exportValue',
+      'totalValue',
+      'poValue',
+      'masterLcValue',
+      'lcValue',
+    ];
+    for (final field in fields) {
+      if (data[field] != null) return _double(data[field]);
+    }
+    return 0;
   }
 
   /// Reads a quantity defensively.

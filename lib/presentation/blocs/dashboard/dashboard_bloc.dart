@@ -10,6 +10,7 @@ import '../../../domain/entities/dashboard/dashboard_chart_data_entity.dart';
 import '../../../domain/entities/dashboard/dashboard_quick_stats_entity.dart';
 import '../../../domain/entities/dashboard/dashboard_stats_entity.dart';
 import '../../../domain/usecases/dashboard/get_comparison_data_usecase.dart';
+import '../../../domain/usecases/dashboard/get_comparison_matrix_usecase.dart';
 import '../../../domain/usecases/dashboard/get_dashboard_stats_usecase.dart';
 import '../../../domain/usecases/dashboard/get_factory_comparison_usecase.dart';
 import '../../../domain/usecases/dashboard/get_module_distribution_usecase.dart';
@@ -34,11 +35,13 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     required this.getFactoryComparison,
     required this.getModuleDistribution,
     required this.getComparisonData,
+    required this.getComparisonMatrix,
   }) : super(const DashboardInitial()) {
     on<DashboardStarted>(_onStarted);
     on<RefreshDashboard>(_onRefresh);
     on<ClearDashboardCache>(_onClearCache);
     on<LoadComparisonData>(_onLoadComparison);
+    on<LoadComparisonMatrix>(_onLoadComparisonMatrix);
     on<LoadDashboardStats>((event, emit) => _reload(emit));
     on<LoadRecentActivities>((event, emit) => _reload(emit));
     on<LoadQuickStats>((event, emit) => _reload(emit));
@@ -54,6 +57,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   final GetFactoryComparisonUseCase getFactoryComparison;
   final GetModuleDistributionUseCase getModuleDistribution;
   final GetComparisonDataUseCase getComparisonData;
+  final GetComparisonMatrixUseCase getComparisonMatrix;
 
   /// How long a cached snapshot stays fresh.
   static const Duration cacheTtl = Duration(minutes: 15);
@@ -158,6 +162,50 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     }
   }
 
+  Future<void> _onLoadComparisonMatrix(
+    LoadComparisonMatrix event,
+    Emitter<DashboardState> emit,
+  ) async {
+    final current = state;
+    final snapshot = current is DashboardLoaded
+        ? current
+        : const DashboardLoaded();
+    emit(
+      snapshot.copyWith(
+        isComparisonMatrixLoading: true,
+        comparisonMatrixError: '',
+      ),
+    );
+
+    final result = await getComparisonMatrix(
+      collections: event.collections,
+      dateFields: event.dateFields,
+      xCriteria: event.xCriteria,
+      yCriteria: event.yCriteria,
+      valueType: event.valueType,
+      fromDate: event.fromDate,
+      toDate: event.toDate,
+    );
+    if (emit.isDone) return;
+
+    result.fold(
+      (error) => emit(
+        snapshot.copyWith(
+          comparisonMatrix: null,
+          comparisonMatrixError: error,
+          isComparisonMatrixLoading: false,
+        ),
+      ),
+      (matrix) => emit(
+        snapshot.copyWith(
+          comparisonMatrix: matrix,
+          comparisonMatrixError: '',
+          isComparisonMatrixLoading: false,
+        ),
+      ),
+    );
+  }
+
   /// Derives the comparison verdict from the two resolved sides.
   ///
   /// Growth is B against A, so "+50%" means Side B is half again as large as
@@ -232,6 +280,9 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       comparisonB: previous?.comparisonB,
       comparisonInsight: previous?.comparisonInsight,
       comparisonResults: previous?.comparisonResults ?? const [],
+      comparisonMatrix: previous?.comparisonMatrix,
+      comparisonMatrixError: previous?.comparisonMatrixError ?? '',
+      isComparisonMatrixLoading: previous?.isComparisonMatrixLoading ?? false,
     );
     emit(stageOne);
 
@@ -271,6 +322,9 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       comparisonB: previous?.comparisonB,
       comparisonInsight: previous?.comparisonInsight,
       comparisonResults: previous?.comparisonResults ?? const [],
+      comparisonMatrix: previous?.comparisonMatrix,
+      comparisonMatrixError: previous?.comparisonMatrixError ?? '',
+      isComparisonMatrixLoading: previous?.isComparisonMatrixLoading ?? false,
     );
     emit(stageTwo);
 
@@ -304,6 +358,9 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       comparisonB: previous?.comparisonB,
       comparisonInsight: previous?.comparisonInsight,
       comparisonResults: previous?.comparisonResults ?? const [],
+      comparisonMatrix: previous?.comparisonMatrix,
+      comparisonMatrixError: previous?.comparisonMatrixError ?? '',
+      isComparisonMatrixLoading: previous?.isComparisonMatrixLoading ?? false,
     );
     if (finalErrors.isEmpty) _cache = _Cache(loaded, DateTime.now());
     emit(
@@ -321,6 +378,9 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
               comparisonB: loaded.comparisonB,
               comparisonInsight: loaded.comparisonInsight,
               comparisonResults: loaded.comparisonResults,
+              comparisonMatrix: loaded.comparisonMatrix,
+              comparisonMatrixError: loaded.comparisonMatrixError,
+              isComparisonMatrixLoading: loaded.isComparisonMatrixLoading,
             ),
     );
   }

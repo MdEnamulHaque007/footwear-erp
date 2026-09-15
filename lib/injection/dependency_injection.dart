@@ -131,6 +131,7 @@ import '../data/repositories/timelapse_repository.dart';
 import '../domain/repositories/i_dashboard_repository.dart';
 import '../domain/repositories/i_timelapse_repository.dart';
 import '../domain/usecases/dashboard/get_comparison_data_usecase.dart';
+import '../domain/usecases/dashboard/get_comparison_matrix_usecase.dart';
 import '../domain/usecases/dashboard/get_dashboard_stats_usecase.dart';
 import '../domain/usecases/dashboard/get_factory_comparison_usecase.dart';
 import '../domain/usecases/dashboard/get_module_distribution_usecase.dart';
@@ -342,6 +343,9 @@ Future<void> setupLocator() async {
     () => GetComparisonDataUseCase(getIt<IDashboardRepository>()),
   );
   getIt.registerLazySingleton(
+    () => GetComparisonMatrixUseCase(getIt<IDashboardRepository>()),
+  );
+  getIt.registerLazySingleton(
     () => GetTimelapseDataUseCase(getIt<ITimelapseRepository>()),
   );
   getIt.registerFactory(
@@ -353,6 +357,7 @@ Future<void> setupLocator() async {
       getFactoryComparison: getIt<GetFactoryComparisonUseCase>(),
       getModuleDistribution: getIt<GetModuleDistributionUseCase>(),
       getComparisonData: getIt<GetComparisonDataUseCase>(),
+      getComparisonMatrix: getIt<GetComparisonMatrixUseCase>(),
     ),
   );
   getIt.registerFactory(

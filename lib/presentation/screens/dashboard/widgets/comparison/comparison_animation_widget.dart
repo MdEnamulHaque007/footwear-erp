@@ -14,13 +14,25 @@ import 'radial_progress_chart.dart';
 import 'sine_wave_chart.dart';
 import 'spring_counter.dart';
 import 'multi_department_comparison_widget.dart';
+import 'comparison_matrix_widget.dart';
 
 /// Public entry point for the all-department comparison experience.
 class ComparisonAnimationWidget extends StatelessWidget {
   const ComparisonAnimationWidget({super.key});
 
   @override
-  Widget build(BuildContext context) => const MultiDepartmentComparisonWidget();
+  Widget build(BuildContext context) => const Column(
+    children: [
+      MultiDepartmentComparisonWidget(),
+      SizedBox(height: 16),
+      ExpansionTile(
+        tilePadding: EdgeInsets.symmetric(horizontal: 16),
+        title: Text('Advanced X × Y Comparison'),
+        subtitle: Text('Build a matrix by criteria, department and measure'),
+        children: [Padding(padding: EdgeInsets.fromLTRB(8, 0, 8, 8), child: ComparisonMatrixWidget())],
+      ),
+    ],
+  );
 }
 
 /// Side-by-side department comparison with independent date ranges.

@@ -22,8 +22,9 @@ class ProductionTrendChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
+    return RepaintBoundary(
+      child: Card(
+        child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -55,6 +56,7 @@ class ProductionTrendChart extends StatelessWidget {
             const SizedBox(height: 12),
             _legend(theme),
           ],
+        ),
         ),
       ),
     );

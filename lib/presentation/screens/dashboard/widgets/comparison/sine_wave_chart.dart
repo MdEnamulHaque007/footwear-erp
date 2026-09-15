@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -42,6 +43,9 @@ class SineWaveChart extends StatefulWidget {
 class _SineWaveChartState extends State<SineWaveChart>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  bool _tickerEnabled = true;
+  bool _pausedForIdle = false;
+  Timer? _idleTimer;
 
   @override
   void initState() {
@@ -50,38 +54,71 @@ class _SineWaveChartState extends State<SineWaveChart>
       vsync: this,
       duration: const Duration(seconds: 6),
     );
-    if (!widget.paused) _controller.repeat();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _tickerEnabled = TickerMode.valuesOf(context).enabled;
+    _syncTicker();
+    _armIdleTimer();
   }
 
   @override
   void didUpdateWidget(covariant SineWaveChart oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.paused && _controller.isAnimating) {
-      _controller.stop();
-    } else if (!widget.paused && !_controller.isAnimating) {
+    _syncTicker();
+  }
+
+  void _syncTicker() {
+    if (!_tickerEnabled || widget.paused || _pausedForIdle) {
+      if (_controller.isAnimating) {
+        _controller.stop();
+      }
+    } else if (!_controller.isAnimating) {
       _controller.repeat();
     }
   }
 
+  void _armIdleTimer() {
+    _idleTimer?.cancel();
+    _idleTimer = Timer(const Duration(seconds: 30), () {
+      if (!mounted) return;
+      _pausedForIdle = true;
+      _syncTicker();
+    });
+  }
+
+  void _resumeForInteraction(PointerEvent _) {
+    _pausedForIdle = false;
+    _syncTicker();
+    _armIdleTimer();
+  }
+
   @override
   void dispose() {
+    _idleTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: widget.height,
-    width: double.infinity,
-    child: AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) => CustomPaint(
-        painter: _SineWavePainter(
-          phase: _controller.value * 2 * math.pi,
-          valueA: widget.valueA,
-          valueB: widget.valueB,
-          colorA: widget.colorA,
-          colorB: widget.colorB,
+  Widget build(BuildContext context) => Listener(
+    onPointerDown: _resumeForInteraction,
+    onPointerMove: _resumeForInteraction,
+    child: SizedBox(
+      height: widget.height,
+      width: double.infinity,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) => CustomPaint(
+          painter: _SineWavePainter(
+            phase: _controller.value * 2 * math.pi,
+            valueA: widget.valueA,
+            valueB: widget.valueB,
+            colorA: widget.colorA,
+            colorB: widget.colorB,
+          ),
         ),
       ),
     ),

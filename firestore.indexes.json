@@ -256,6 +256,22 @@
       "collectionGroup": "master_lc",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "masterLcDate", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "purchase_orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "poDate", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "master_lc",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "tagNo", "order": "ASCENDING" },
         { "fieldPath": "sl", "order": "ASCENDING" }
       ]
@@ -346,39 +362,11 @@
       ]
     },
     {
-      "collectionGroup": "master_lc",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "purchase_orders",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "cuttings",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "cuttingDate", "order": "DESCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "cuttings",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "factoryName", "order": "ASCENDING" },
         { "fieldPath": "cuttingDate", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "sewings",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "sewingDate", "order": "DESCENDING" }
       ]
     },
     {
@@ -393,29 +381,8 @@
       "collectionGroup": "productions",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "productionDate", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "productions",
-      "queryScope": "COLLECTION",
-      "fields": [
         { "fieldPath": "factoryName", "order": "ASCENDING" },
         { "fieldPath": "productionDate", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "issues",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "issueDate", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "exports",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "exportDate", "order": "DESCENDING" }
       ]
     }
   ],

@@ -14,8 +14,9 @@ class FactoryComparisonChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
+    return RepaintBoundary(
+      child: Card(
+        child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -45,6 +46,7 @@ class FactoryComparisonChart extends StatelessWidget {
             else
               SizedBox(height: 250, child: BarChart(_chartData(theme))),
           ],
+        ),
         ),
       ),
     );

@@ -110,8 +110,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return ListView(
           padding: EdgeInsets.fromLTRB(padding, 20, padding, 48),
           children: [
-            if (warning != null) ...[
-              _warningBanner(warning),
+            if (warning?.isNotEmpty == true) ...[
+              _warningBanner(warning!),
               const SizedBox(height: 14),
             ],
             WelcomeHeaderWidget(
@@ -123,11 +123,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 20),
             _sectionTitle(context, 'Key Metrics'),
             const SizedBox(height: 12),
-            KpiGridWidget(stats: state.stats),
+            RepaintBoundary(child: KpiGridWidget(stats: state.stats)),
             const SizedBox(height: 20),
-            const ComparisonAnimationWidget(),
+            const RepaintBoundary(child: ComparisonAnimationWidget()),
             const SizedBox(height: 20),
-            ProductionTrendChart(points: state.trend),
+            RepaintBoundary(child: ProductionTrendChart(points: state.trend)),
             const SizedBox(height: 20),
             if (wide)
               Row(
@@ -135,30 +135,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Expanded(
                     flex: 3,
-                    child: FactoryComparisonChart(
-                      points: state.factoryComparison,
+                    child: RepaintBoundary(
+                      child: FactoryComparisonChart(
+                        points: state.factoryComparison,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     flex: 2,
-                    child: ModuleDistributionChart(
-                      points: state.moduleDistribution,
+                    child: RepaintBoundary(
+                      child: ModuleDistributionChart(
+                        points: state.moduleDistribution,
+                      ),
                     ),
                   ),
                 ],
               )
             else ...[
-              FactoryComparisonChart(points: state.factoryComparison),
+              RepaintBoundary(
+                child: FactoryComparisonChart(points: state.factoryComparison),
+              ),
               const SizedBox(height: 16),
-              ModuleDistributionChart(points: state.moduleDistribution),
+              RepaintBoundary(
+                child: ModuleDistributionChart(
+                  points: state.moduleDistribution,
+                ),
+              ),
             ],
             const SizedBox(height: 20),
-            RecentActivitiesWidget(activities: state.activities),
+            RepaintBoundary(
+              child: RecentActivitiesWidget(activities: state.activities),
+            ),
             const SizedBox(height: 20),
             _sectionTitle(context, 'Activity Summary'),
             const SizedBox(height: 12),
-            QuickStatsWidget(stats: state.quickStats),
+            RepaintBoundary(child: QuickStatsWidget(stats: state.quickStats)),
             const SizedBox(height: 20),
             const QuickActionsWidget(),
           ],
@@ -249,4 +261,3 @@ class _ErrorView extends StatelessWidget {
     ),
   );
 }
-

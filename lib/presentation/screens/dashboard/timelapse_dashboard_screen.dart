@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../../../domain/entities/dashboard/department_option_entity.dart';
 import '../../../domain/entities/timelapse/timelapse_config_entity.dart';
 import '../../blocs/timelapse/timelapse_bloc.dart';
 import '../../blocs/timelapse/timelapse_event.dart';
@@ -84,7 +83,9 @@ class _TimelapseDashboardScreenState extends State<TimelapseDashboardScreen> {
     body: BlocConsumer<TimelapseBloc, TimelapseState>(
       listener: (context, state) {
         if (state is TimelapseError) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.message)));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.message)));
         }
       },
       builder: (context, state) => LayoutBuilder(
@@ -101,15 +102,25 @@ class _TimelapseDashboardScreenState extends State<TimelapseDashboardScreen> {
             else if (state is TimelapseLoaded) ...[
               TimelapseControlsWidget(
                 state: state,
-                onPlay: () => context.read<TimelapseBloc>().add(const PlayTimelapse()),
-                onPause: () => context.read<TimelapseBloc>().add(const PauseTimelapse()),
-                onReset: () => context.read<TimelapseBloc>().add(const ResetTimelapse()),
-                onSpeedChanged: (speed) => context.read<TimelapseBloc>().add(SetPlaybackSpeed(speed)),
+                onPlay: () =>
+                    context.read<TimelapseBloc>().add(const PlayTimelapse()),
+                onPause: () =>
+                    context.read<TimelapseBloc>().add(const PauseTimelapse()),
+                onReset: () =>
+                    context.read<TimelapseBloc>().add(const ResetTimelapse()),
+                onSpeedChanged: (speed) =>
+                    context.read<TimelapseBloc>().add(SetPlaybackSpeed(speed)),
               ),
               const SizedBox(height: 16),
-              TimelapseChartWidget(data: state.data, visiblePoints: state.visiblePoints),
+              TimelapseChartWidget(
+                data: state.data,
+                visiblePoints: state.visiblePoints,
+              ),
               const SizedBox(height: 16),
-              TimelapseLiveCountersWidget(data: state.data, visiblePoints: state.visiblePoints),
+              TimelapseLiveCountersWidget(
+                data: state.data,
+                visiblePoints: state.visiblePoints,
+              ),
               const SizedBox(height: 16),
               TimelapseProgressBar(
                 progress: state.progress,
@@ -125,7 +136,9 @@ class _TimelapseDashboardScreenState extends State<TimelapseDashboardScreen> {
             ] else if (state is TimelapseInitial)
               const Padding(
                 padding: EdgeInsets.all(24),
-                child: Center(child: Text('Choose filters and load a timeline.')),
+                child: Center(
+                  child: Text('Choose filters and load a timeline.'),
+                ),
               ),
           ],
         ),
@@ -139,7 +152,10 @@ class _TimelapseDashboardScreenState extends State<TimelapseDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Timeline filters', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            'Timeline filters',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 14),
           DepartmentMultiSelect(
             selected: _config.departments,
@@ -152,22 +168,41 @@ class _TimelapseDashboardScreenState extends State<TimelapseDashboardScreen> {
             spacing: 12,
             runSpacing: 12,
             children: [
-              _dateButton(context, 'From', _config.fromDate, () => _pickDate(from: true)),
-              _dateButton(context, 'To', _config.toDate, () => _pickDate(from: false)),
+              _dateButton(
+                context,
+                'From',
+                _config.fromDate,
+                () => _pickDate(from: true),
+              ),
+              _dateButton(
+                context,
+                'To',
+                _config.toDate,
+                () => _pickDate(from: false),
+              ),
               DropdownButton<DataType>(
                 value: _config.dataType,
                 onChanged: (value) {
-                  if (value != null) setState(() => _config = _config.copyWith(dataType: value));
+                  if (value != null) {
+                    setState(() => _config = _config.copyWith(dataType: value));
+                  }
                 },
                 items: const [
-                  DropdownMenuItem(value: DataType.quantity, child: Text('Quantity')),
+                  DropdownMenuItem(
+                    value: DataType.quantity,
+                    child: Text('Quantity'),
+                  ),
                   DropdownMenuItem(value: DataType.value, child: Text('Value')),
                 ],
               ),
               DropdownButton<int>(
                 value: _config.durationSeconds,
                 onChanged: (value) {
-                  if (value != null) setState(() => _config = _config.copyWith(durationSeconds: value));
+                  if (value != null) {
+                    setState(
+                      () => _config = _config.copyWith(durationSeconds: value),
+                    );
+                  }
                 },
                 items: const [
                   DropdownMenuItem(value: 30, child: Text('30 seconds')),
@@ -208,7 +243,9 @@ class _TimelapseDashboardScreenState extends State<TimelapseDashboardScreen> {
       0,
       (total, series) => total + series.valueAt(state.data.totalPoints - 1),
     );
-    final growth = firstTotal == 0 ? 0 : ((peak - firstTotal) / firstTotal) * 100;
+    final growth = firstTotal == 0
+        ? 0
+        : ((peak - firstTotal) / firstTotal) * 100;
     final peakDate = state.data.toDate;
     return Card(
       color: Theme.of(context).colorScheme.primaryContainer,
@@ -217,17 +254,26 @@ class _TimelapseDashboardScreenState extends State<TimelapseDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Time-lapse complete', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Time-lapse complete',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 6),
             Text('Growth from first day: ${growth.toStringAsFixed(1)}%'),
             const SizedBox(height: 3),
             Text('Peak day: ${DateFormat('dd MMM yyyy').format(peakDate)}'),
             const SizedBox(height: 3),
-            Text('Peak cumulative total: ${NumberFormat.decimalPattern().format(peak)}'),
+            Text(
+              'Peak cumulative total: ${NumberFormat.decimalPattern().format(peak)}',
+            ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Snapshot export will be available in reports.')),
+                const SnackBar(
+                  content: Text(
+                    'Snapshot export will be available in reports.',
+                  ),
+                ),
               ),
               icon: const Icon(Icons.download_outlined),
               label: const Text('Export Snapshot'),

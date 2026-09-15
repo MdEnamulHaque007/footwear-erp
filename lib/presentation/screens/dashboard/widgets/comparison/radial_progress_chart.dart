@@ -32,6 +32,7 @@ class _RadialProgressChartState extends State<RadialProgressChart>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late Animation<double> _sweep;
+  bool _tickerEnabled = true;
 
   @override
   void initState() {
@@ -41,7 +42,15 @@ class _RadialProgressChartState extends State<RadialProgressChart>
       duration: const Duration(milliseconds: 1200),
     );
     _sweep = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
-    _controller.forward();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _tickerEnabled = TickerMode.valuesOf(context).enabled;
+    if (_tickerEnabled && _controller.value == 0) {
+      _controller.forward();
+    }
   }
 
   @override
@@ -50,7 +59,9 @@ class _RadialProgressChartState extends State<RadialProgressChart>
     // Re-run the sweep whenever the data changes so the arc grows into place.
     if (oldWidget.ratioA != widget.ratioA ||
         oldWidget.ratioB != widget.ratioB) {
-      _controller.forward(from: 0);
+      if (_tickerEnabled) {
+        _controller.forward(from: 0);
+      }
     }
   }
 

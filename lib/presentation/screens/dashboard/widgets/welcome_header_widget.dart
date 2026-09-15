@@ -25,25 +25,25 @@ class WelcomeHeaderWidget extends StatefulWidget {
 }
 
 class _WelcomeHeaderWidgetState extends State<WelcomeHeaderWidget> {
-  late DateTime _now;
+  late final ValueNotifier<DateTime> _now;
   Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    _now = DateTime.now();
+    _now = ValueNotifier(DateTime.now());
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
   }
 
   void _tick() {
-    if (!mounted) return;
-    setState(() => _now = DateTime.now());
+    if (mounted) _now.value = DateTime.now();
   }
 
   @override
   void dispose() {
     _timer?.cancel();
     _timer = null;
+    _now.dispose();
     super.dispose();
   }
 
@@ -139,14 +139,24 @@ class _WelcomeHeaderWidgetState extends State<WelcomeHeaderWidget> {
         ? CrossAxisAlignment.start
         : CrossAxisAlignment.end,
     children: [
-      Text(
-        DateFormat('hh:mm:ss a').format(_now),
-        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-      ),
-      const SizedBox(height: 4),
-      Text(
-        DateFormat('EEE, dd MMM yyyy').format(_now),
-        style: const TextStyle(fontSize: 12, color: Color(0xFFDDE8FF)),
+      ValueListenableBuilder<DateTime>(
+        valueListenable: _now,
+        builder: (context, now, _) => Column(
+          crossAxisAlignment: compact
+              ? CrossAxisAlignment.start
+              : CrossAxisAlignment.end,
+          children: [
+            Text(
+              DateFormat('hh:mm:ss a').format(now),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              DateFormat('EEE, dd MMM yyyy').format(now),
+              style: const TextStyle(fontSize: 12, color: Color(0xFFDDE8FF)),
+            ),
+          ],
+        ),
       ),
     ],
   );

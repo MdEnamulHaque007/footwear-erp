@@ -30,64 +30,65 @@ class _ModuleDistributionChartState extends State<ModuleDistributionChart> {
     'Export': ColorPalette.export,
   };
 
-  static Color _colorFor(String label) =>
-      _colors[label] ?? ColorPalette.muted;
+  static Color _colorFor(String label) => _colors[label] ?? ColorPalette.muted;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Module Distribution',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text('Share of all records', style: theme.textTheme.bodySmall),
-            const SizedBox(height: 16),
-            if (widget.points.isEmpty)
-              SizedBox(
-                height: 250,
-                child: Center(
-                  child: Text(
-                    'No records yet.',
-                    style: theme.textTheme.bodyMedium,
-                  ),
+    return RepaintBoundary(
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Module Distribution',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
                 ),
-              )
-            else ...[
-              SizedBox(
-                height: 210,
-                child: PieChart(
-                  PieChartData(
-                    sectionsSpace: 2,
-                    centerSpaceRadius: 48,
-                    pieTouchData: PieTouchData(
-                      touchCallback: (event, response) {
-                        setState(() {
-                          _touchedIndex =
-                              response?.touchedSection?.touchedSectionIndex ??
-                              -1;
-                        });
-                      },
+              ),
+              const SizedBox(height: 2),
+              Text('Share of all records', style: theme.textTheme.bodySmall),
+              const SizedBox(height: 16),
+              if (widget.points.isEmpty)
+                SizedBox(
+                  height: 250,
+                  child: Center(
+                    child: Text(
+                      'No records yet.',
+                      style: theme.textTheme.bodyMedium,
                     ),
-                    sections: [
-                      for (var i = 0; i < widget.points.length; i++)
-                        _section(i),
-                    ],
+                  ),
+                )
+              else ...[
+                SizedBox(
+                  height: 210,
+                  child: PieChart(
+                    PieChartData(
+                      sectionsSpace: 2,
+                      centerSpaceRadius: 48,
+                      pieTouchData: PieTouchData(
+                        touchCallback: (event, response) {
+                          setState(() {
+                            _touchedIndex =
+                                response?.touchedSection?.touchedSectionIndex ??
+                                -1;
+                          });
+                        },
+                      ),
+                      sections: [
+                        for (var i = 0; i < widget.points.length; i++)
+                          _section(i),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              _legend(theme),
+                const SizedBox(height: 12),
+                _legend(theme),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

@@ -21,6 +21,7 @@ class _MultiDepartmentComparisonWidgetState
     extends State<MultiDepartmentComparisonWidget> {
   late List<ComparisonItem> _items;
   var _nextId = 3;
+  var _hasRequestedComparison = false;
 
   @override
   void initState() {
@@ -43,13 +44,12 @@ class _MultiDepartmentComparisonWidgetState
         toDate: range.end,
       ),
     ];
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _load();
-    });
   }
 
-  void _load() =>
-      context.read<DashboardBloc>().add(LoadComparisonData(items: _items));
+  void _load() {
+    setState(() => _hasRequestedComparison = true);
+    context.read<DashboardBloc>().add(LoadComparisonData(items: _items));
+  }
 
   void _update(int index, ComparisonItem item) {
     if (_items.asMap().entries.any(
@@ -61,7 +61,10 @@ class _MultiDepartmentComparisonWidgetState
       );
       return;
     }
-    setState(() => _items[index] = item);
+    setState(() {
+      _items[index] = item;
+      _hasRequestedComparison = false;
+    });
   }
 
   void _add() {
@@ -79,6 +82,7 @@ class _MultiDepartmentComparisonWidgetState
           toDate: DateTime(2026, 6, 30),
         ),
       );
+      _hasRequestedComparison = false;
     });
   }
 
@@ -103,8 +107,8 @@ class _MultiDepartmentComparisonWidgetState
         ),
       ];
       _nextId = 3;
+      _hasRequestedComparison = false;
     });
-    _load();
   }
 
   @override
@@ -125,7 +129,7 @@ class _MultiDepartmentComparisonWidgetState
                 ),
               ),
               TextButton.icon(
-                onPressed: _items.length == 7 ? null : _add,
+                onPressed: _items.length >= 7 ? null : _add,
                 icon: const Icon(Icons.add),
                 label: const Text('Add Department'),
               ),
@@ -146,7 +150,7 @@ class _MultiDepartmentComparisonWidgetState
                 spacing: 14,
                 runSpacing: 14,
                 children: [
-                  for (var index = 0; index < _items.length;)
+                  for (var index = 0; index < _items.length; index++)
                     SizedBox(
                       width: width,
                       child: DepartmentCardWidget(
@@ -154,7 +158,10 @@ class _MultiDepartmentComparisonWidgetState
                         item: _items[index],
                         canRemove: _items.length > 1,
                         onChanged: (item) => _update(index, item),
-                        onRemove: () => setState(() => _items.removeAt(index)),
+                        onRemove: () => setState(() {
+                          _items.removeAt(index);
+                          _hasRequestedComparison = false;
+                        }),
                       ),
                     ),
                 ],
@@ -180,10 +187,26 @@ class _MultiDepartmentComparisonWidgetState
           const SizedBox(height: 18),
           BlocBuilder<DashboardBloc, DashboardState>(
             builder: (context, state) {
+              if (!_hasRequestedComparison) {
+                return const SizedBox(
+                  height: 120,
+                  child: Center(
+                    child: Text('Ready. Select departments and press View.'),
+                  ),
+                );
+              }
               if (state is! DashboardLoaded) {
                 return const SizedBox(
                   height: 160,
                   child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              if (state.comparisonResults.isEmpty) {
+                return const SizedBox(
+                  height: 120,
+                  child: Center(
+                    child: Text('Ready. Select departments and press View.'),
+                  ),
                 );
               }
               return MultiDepartmentChartWidget(

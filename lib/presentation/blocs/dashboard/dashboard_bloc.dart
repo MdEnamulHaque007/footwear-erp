@@ -219,68 +219,110 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       emit(current.copyWith(isRefreshing: true));
     }
 
-    final statsFuture = getStats();
-    final activitiesFuture = getRecentActivities(activityLimit);
-    final quickStatsFuture = getQuickStats();
+    final previous = current is DashboardLoaded ? current : null;
+
+    // Stage 1: KPI cards are the first useful visual response.
+    final stats = await getStats();
+    if (emit.isDone) return;
+    final statsError = stats.fold((error) => error, (_) => '');
+    final stageOne = DashboardPartialLoaded(
+      warning: statsError,
+      stats: stats.getOrElse(() => const DashboardStatsEntity()),
+      comparisonA: previous?.comparisonA,
+      comparisonB: previous?.comparisonB,
+      comparisonInsight: previous?.comparisonInsight,
+      comparisonResults: previous?.comparisonResults ?? const [],
+    );
+    emit(stageOne);
+
+    // Stage 2: delay non-critical chart work until the KPI frame can paint.
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    if (emit.isDone) return;
     final trendFuture = getProductionTrend(trendDays);
     final factoryFuture = getFactoryComparison();
     final distributionFuture = getModuleDistribution();
-
-    final stats = await statsFuture;
-    final activities = await activitiesFuture;
-    final quickStats = await quickStatsFuture;
+    await Future.wait<void>([
+      trendFuture.then<void>((_) {}),
+      factoryFuture.then<void>((_) {}),
+      distributionFuture.then<void>((_) {}),
+    ]);
+    if (emit.isDone) return;
     final trend = await trendFuture;
     final factory = await factoryFuture;
     final distribution = await distributionFuture;
-    if (emit.isDone) return;
-
-    final errors = <String>[
-      ...stats.fold((e) => [e], (_) => const <String>[]),
-      ...activities.fold((e) => [e], (_) => const <String>[]),
-      ...quickStats.fold((e) => [e], (_) => const <String>[]),
-      ...trend.fold((e) => [e], (_) => const <String>[]),
-      ...factory.fold((e) => [e], (_) => const <String>[]),
-      ...distribution.fold((e) => [e], (_) => const <String>[]),
+    final chartErrors = <String>[
+      ...trend.fold((error) => [error], (_) => const <String>[]),
+      ...factory.fold((error) => [error], (_) => const <String>[]),
+      ...distribution.fold((error) => [error], (_) => const <String>[]),
     ];
-
-    final loaded = DashboardLoaded(
-      stats: stats.getOrElse(() => const DashboardStatsEntity()),
-      activities: activities.getOrElse(
-        () => const <DashboardActivityEntity>[],
-      ),
-      quickStats: quickStats.getOrElse(
-        () => const DashboardQuickStatsEntity(),
-      ),
+    final stageTwo = DashboardPartialLoaded(
+      warning: statsError.isNotEmpty
+          ? statsError
+          : chartErrors.isEmpty
+          ? ''
+          : chartErrors.first,
+      stats: stageOne.stats,
       trend: trend.getOrElse(() => const <MultiSeriesDataPoint>[]),
       factoryComparison: factory.getOrElse(() => const <ChartDataPoint>[]),
       moduleDistribution: distribution.getOrElse(
         () => const <ChartDataPoint>[],
       ),
-      // Comparison A/B are intentionally absent here: they are driven only by
-      // the panel's own View action, so a dashboard reload must not clobber a
-      // comparison the user is looking at.
+      comparisonA: previous?.comparisonA,
+      comparisonB: previous?.comparisonB,
+      comparisonInsight: previous?.comparisonInsight,
+      comparisonResults: previous?.comparisonResults ?? const [],
     );
+    emit(stageTwo);
 
-    // Only a fully successful snapshot is cached, so a partial result never
-    // suppresses a later retry.
-    if (errors.isEmpty) {
-      _cache = _Cache(loaded, DateTime.now());
-    }
-    if (errors.isNotEmpty) {
-      emit(
-        DashboardPartialLoaded(
-          warning: errors.first,
-          stats: loaded.stats,
-          activities: loaded.activities,
-          quickStats: loaded.quickStats,
-          trend: loaded.trend,
-          factoryComparison: loaded.factoryComparison,
-          moduleDistribution: loaded.moduleDistribution,
-        ),
-      );
-    } else {
-      emit(loaded);
-    }
+    // Stage 3: the lower-page feed and summary arrive after first paint.
+    await Future<void>.delayed(const Duration(milliseconds: 1000));
+    if (emit.isDone) return;
+    final activitiesFuture = getRecentActivities(activityLimit);
+    final quickStatsFuture = getQuickStats();
+    await Future.wait<void>([
+      activitiesFuture.then<void>((_) {}),
+      quickStatsFuture.then<void>((_) {}),
+    ]);
+    if (emit.isDone) return;
+    final activities = await activitiesFuture;
+    final quickStats = await quickStatsFuture;
+    final finalErrors = <String>[
+      statsError,
+      ...chartErrors,
+      ...activities.fold((error) => [error], (_) => const <String>[]),
+      ...quickStats.fold((error) => [error], (_) => const <String>[]),
+    ].where((error) => error.isNotEmpty).toList();
+
+    final loaded = DashboardLoaded(
+      stats: stageTwo.stats,
+      activities: activities.getOrElse(() => const <DashboardActivityEntity>[]),
+      quickStats: quickStats.getOrElse(() => const DashboardQuickStatsEntity()),
+      trend: stageTwo.trend,
+      factoryComparison: stageTwo.factoryComparison,
+      moduleDistribution: stageTwo.moduleDistribution,
+      comparisonA: previous?.comparisonA,
+      comparisonB: previous?.comparisonB,
+      comparisonInsight: previous?.comparisonInsight,
+      comparisonResults: previous?.comparisonResults ?? const [],
+    );
+    if (finalErrors.isEmpty) _cache = _Cache(loaded, DateTime.now());
+    emit(
+      finalErrors.isEmpty
+          ? loaded
+          : DashboardPartialLoaded(
+              warning: finalErrors.first,
+              stats: loaded.stats,
+              activities: loaded.activities,
+              quickStats: loaded.quickStats,
+              trend: loaded.trend,
+              factoryComparison: loaded.factoryComparison,
+              moduleDistribution: loaded.moduleDistribution,
+              comparisonA: loaded.comparisonA,
+              comparisonB: loaded.comparisonB,
+              comparisonInsight: loaded.comparisonInsight,
+              comparisonResults: loaded.comparisonResults,
+            ),
+    );
   }
 }
 

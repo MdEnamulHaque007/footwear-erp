@@ -23,7 +23,18 @@ class DashboardRepository implements IDashboardRepository {
 
   /// Upper bound per collection read. The dashboard is an aggregate view, so a
   /// capped sample is preferred over an unbounded scan.
-  static const int queryLimit = 1000;
+  /// Dashboard panels are summaries, not exports. Keeping each read bounded
+  /// avoids repeatedly downloading large collections on first paint.
+  static const int queryLimit = 100;
+  static const Duration _statsCacheTtl = Duration(minutes: 15);
+
+  DashboardStatsEntity? _statsCache;
+  DateTime? _statsCacheAt;
+
+  bool get _hasFreshStatsCache =>
+      _statsCache != null &&
+      _statsCacheAt != null &&
+      DateTime.now().difference(_statsCacheAt!) < _statsCacheTtl;
 
   /// Series names and order used by the trend chart.
   static const List<String> _trendSeries = [
@@ -56,6 +67,10 @@ class DashboardRepository implements IDashboardRepository {
   @override
   Future<Either<String, DashboardStatsEntity>> getStats() async {
     try {
+      if (_hasFreshStatsCache) {
+        return Right(_statsCache!);
+      }
+
       final results = await Future.wait([
         _masterLc.limit(queryLimit).get(),
         _po.limit(queryLimit).get(),
@@ -75,30 +90,31 @@ class DashboardRepository implements IDashboardRepository {
       final export = results[6].docs.map((d) => d.data());
       final users = results[7].docs.map((d) => d.data());
 
-      return Right(
-        DashboardStatsEntity(
-          masterLcCount: results[0].docs.length,
-          masterLcValue: _sum(masterLc, 'masterLcValue'),
-          poCount: results[1].docs.length,
-          poValue: _sum(po, 'poValue'),
-          cuttingCount: results[2].docs.length,
-          cuttingQuantity: _sum(cutting, 'cuttingQuantity').toInt(),
-          sewingCount: results[3].docs.length,
-          sewingQuantity: _sum(sewing, 'sewingQuantity').toInt(),
-          productionCount: results[4].docs.length,
-          // `quantity` is Production's canonical stored field; older records
-          // created before it existed carry only `productionValue`.
-          productionQuantity: _sum(production, 'quantity').toInt(),
-          issueCount: results[5].docs.length,
-          issueQuantity: _sum(issue, 'issueQuantity').toInt(),
-          exportCount: results[6].docs.length,
-          exportQuantity: _sum(export, 'exportQuantity').toInt(),
-          userCount: results[7].docs.length,
-          activeUserCount: users
-              .where((d) => _bool(d['isActive'], fallback: true))
-              .length,
-        ),
+      final stats = DashboardStatsEntity(
+        masterLcCount: results[0].docs.length,
+        masterLcValue: _sum(masterLc, 'masterLcValue'),
+        poCount: results[1].docs.length,
+        poValue: _sum(po, 'poValue'),
+        cuttingCount: results[2].docs.length,
+        cuttingQuantity: _sum(cutting, 'cuttingQuantity').toInt(),
+        sewingCount: results[3].docs.length,
+        sewingQuantity: _sum(sewing, 'sewingQuantity').toInt(),
+        productionCount: results[4].docs.length,
+        // `quantity` is Production's canonical stored field; older records
+        // created before it existed carry only `productionValue`.
+        productionQuantity: _sum(production, 'quantity').toInt(),
+        issueCount: results[5].docs.length,
+        issueQuantity: _sum(issue, 'issueQuantity').toInt(),
+        exportCount: results[6].docs.length,
+        exportQuantity: _sum(export, 'exportQuantity').toInt(),
+        userCount: results[7].docs.length,
+        activeUserCount: users
+            .where((d) => _bool(d['isActive'], fallback: true))
+            .length,
       );
+      _statsCache = stats;
+      _statsCacheAt = DateTime.now();
+      return Right(stats);
     } on FirebaseException catch (e) {
       return Left('Database error: ${e.message}');
     } catch (_) {
@@ -132,7 +148,7 @@ class DashboardRepository implements IDashboardRepository {
     }
   }
 
-  /// Reads the three newest documents of one collection and maps them to feed
+  /// Reads the two newest documents of one collection and maps them to feed
   /// entries. A collection whose date field is absent simply contributes none,
   /// so one malformed collection cannot blank the whole feed.
   Future<List<DashboardActivityEntity>> _latestActivity(
@@ -143,7 +159,7 @@ class DashboardRepository implements IDashboardRepository {
     try {
       final snapshot = await collection
           .orderBy(dateField, descending: true)
-          .limit(3)
+          .limit(2)
           .get();
       return snapshot.docs.map((doc) {
         final data = doc.data();

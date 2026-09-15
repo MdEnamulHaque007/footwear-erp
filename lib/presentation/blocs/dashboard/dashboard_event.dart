@@ -1,4 +1,4 @@
-import '../../../domain/entities/dashboard/department_option_entity.dart';
+import '../../../domain/entities/dashboard/comparison_item_entity.dart';
 
 sealed class DashboardEvent {}
 
@@ -19,27 +19,14 @@ class LoadFactoryComparison extends DashboardEvent {}
 
 class LoadModuleDistribution extends DashboardEvent {}
 
-/// Compares two user-chosen departments over two independent date ranges.
+/// Loads one to seven independently configured comparison cards.
 class LoadComparisonData extends DashboardEvent {
-  LoadComparisonData({
-    required this.departmentA,
-    required this.departmentB,
-    required this.fromA,
-    required this.toA,
-    required this.fromB,
-    required this.toB,
-  });
+  LoadComparisonData({required this.items});
 
-  final DepartmentOption departmentA;
-  final DepartmentOption departmentB;
-  final DateTime fromA;
-  final DateTime toA;
-  final DateTime fromB;
-  final DateTime toB;
+  final List<ComparisonItem> items;
 }
 
 class RefreshDashboard extends DashboardEvent {}
 
 /// Clears the in-memory cache and reloads everything.
 class ClearDashboardCache extends DashboardEvent {}
-

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../../core/theme/color_palette.dart';
 import '../../../../../domain/entities/dashboard/comparison_data_entity.dart';
+import '../../../../../domain/entities/dashboard/comparison_item_entity.dart';
 import '../../../../../domain/entities/dashboard/department_option_entity.dart';
 import '../../../../blocs/dashboard/dashboard_bloc.dart';
 import '../../../../blocs/dashboard/dashboard_event.dart';
@@ -12,6 +13,15 @@ import 'department_selector.dart';
 import 'radial_progress_chart.dart';
 import 'sine_wave_chart.dart';
 import 'spring_counter.dart';
+import 'multi_department_comparison_widget.dart';
+
+/// Public entry point for the all-department comparison experience.
+class ComparisonAnimationWidget extends StatelessWidget {
+  const ComparisonAnimationWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) => const MultiDepartmentComparisonWidget();
+}
 
 /// Side-by-side department comparison with independent date ranges.
 ///
@@ -20,15 +30,16 @@ import 'spring_counter.dart';
 /// across two periods or against a different stage. Pressing View dispatches
 /// [LoadComparisonData]; the BLoC fetches both sides in parallel and derives the
 /// insight.
-class ComparisonAnimationWidget extends StatefulWidget {
-  const ComparisonAnimationWidget({super.key});
+class LegacyComparisonAnimationWidget extends StatefulWidget {
+  const LegacyComparisonAnimationWidget({super.key});
 
   @override
-  State<ComparisonAnimationWidget> createState() =>
+  State<LegacyComparisonAnimationWidget> createState() =>
       _ComparisonAnimationWidgetState();
 }
 
-class _ComparisonAnimationWidgetState extends State<ComparisonAnimationWidget> {
+class _ComparisonAnimationWidgetState
+    extends State<LegacyComparisonAnimationWidget> {
   // Defaults: Cutting vs Sewing over two halves of a year.
   DepartmentOption _departmentA = DepartmentOption.all[2];
   DepartmentOption _departmentB = DepartmentOption.all[3];
@@ -55,12 +66,20 @@ class _ComparisonAnimationWidgetState extends State<ComparisonAnimationWidget> {
   void _load() {
     context.read<DashboardBloc>().add(
       LoadComparisonData(
-        departmentA: _departmentA,
-        departmentB: _departmentB,
-        fromA: _rangeA.start,
-        toA: _rangeA.end,
-        fromB: _rangeB.start,
-        toB: _rangeB.end,
+        items: [
+          ComparisonItem(
+            id: 'legacy-a',
+            department: _departmentA,
+            fromDate: _rangeA.start,
+            toDate: _rangeA.end,
+          ),
+          ComparisonItem(
+            id: 'legacy-b',
+            department: _departmentB,
+            fromDate: _rangeB.start,
+            toDate: _rangeB.end,
+          ),
+        ],
       ),
     );
   }

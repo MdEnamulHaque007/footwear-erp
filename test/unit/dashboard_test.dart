@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:footwear/domain/entities/dashboard/comparison_data_entity.dart';
+import 'package:footwear/domain/entities/dashboard/comparison_item_entity.dart';
 import 'package:footwear/domain/entities/dashboard/dashboard_activity_entity.dart';
 import 'package:footwear/domain/entities/dashboard/dashboard_chart_data_entity.dart';
 import 'package:footwear/domain/entities/dashboard/dashboard_quick_stats_entity.dart';
@@ -247,6 +248,76 @@ void main() {
 
     test('fromLabel falls back to Cutting for an unknown label', () {
       expect(DepartmentOption.fromLabel('Nonexistent').label, 'Cutting');
+    });
+
+    test('all seven departments map to their Firestore collections', () {
+      expect(
+        DepartmentOption.all.map((option) => option.collection).toList(),
+        [
+          'master_lc',
+          'purchase_orders',
+          'cuttings',
+          'sewings',
+          'productions',
+          'issues',
+          'exports',
+        ],
+      );
+    });
+
+    test('all departments have expected date and quantity fields', () {
+      expect(DepartmentOption.all[0].dateField, 'masterLcDate');
+      expect(DepartmentOption.all[1].quantityField, 'totalQuantity');
+      expect(DepartmentOption.all[6].dateField, 'exportDate');
+      expect(DepartmentOption.all[6].quantityField, 'exportQuantity');
+    });
+  });
+
+  group('ComparisonItem', () {
+    final from = DateTime(2026, 1, 1);
+    final to = DateTime(2026, 6, 30);
+
+    ComparisonItem itemFor(int index) => ComparisonItem(
+      id: 'item-$index',
+      department: DepartmentOption.all[index],
+      fromDate: from,
+      toDate: to,
+    );
+
+    test('accepts any of the seven departments', () {
+      for (var index = 0; index < DepartmentOption.all.length; index++) {
+        expect(itemFor(index).department, DepartmentOption.all[index]);
+      }
+    });
+
+    test('supports a list containing all seven departments', () {
+      final items = [for (var index = 0; index < 7; index++) itemFor(index)];
+      expect(items, hasLength(7));
+      expect(items.map((item) => item.department).toSet(), hasLength(7));
+    });
+
+    test('default comparison items are Cutting and Sewing', () {
+      final defaults = [itemFor(2), itemFor(3)];
+      expect(defaults.map((item) => item.department.label), ['Cutting', 'Sewing']);
+    });
+
+    test('an item can be removed from any position', () {
+      final items = [itemFor(0), itemFor(1), itemFor(2)];
+      items.removeAt(1);
+      expect(items.map((item) => item.department.label), ['Master LC', 'Cutting']);
+    });
+
+    test('copyWith changes a department without changing its id', () {
+      final updated = itemFor(2).copyWith(department: DepartmentOption.all[6]);
+      expect(updated.id, 'item-2');
+      expect(updated.department.label, 'Export');
+    });
+
+    test('each supported chart type can be selected', () {
+      final item = itemFor(2);
+      for (final chartType in ChartType.values) {
+        expect(item.copyWith(chartType: chartType).chartType, chartType);
+      }
     });
   });
 }

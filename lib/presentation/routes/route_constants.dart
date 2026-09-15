@@ -1,5 +1,6 @@
 class RouteConstants {
   static const dashboard = '/';
+  static const timelapseDashboard = '/dashboard/timelapse';
   static const login = '/login';
   static const register = '/register';
   static const resetPassword = '/reset-password';

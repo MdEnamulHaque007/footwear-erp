@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import '../../../domain/entities/dashboard/comparison_data_entity.dart';
+import '../../../domain/entities/dashboard/comparison_item_entity.dart';
 import '../../../domain/entities/dashboard/dashboard_activity_entity.dart';
 import '../../../domain/entities/dashboard/dashboard_chart_data_entity.dart';
 import '../../../domain/entities/dashboard/dashboard_quick_stats_entity.dart';
@@ -43,6 +44,7 @@ class DashboardLoaded extends DashboardState {
     this.comparisonA,
     this.comparisonB,
     this.comparisonInsight,
+    this.comparisonResults = const [],
     this.isRefreshing = false,
   });
 
@@ -62,11 +64,13 @@ class DashboardLoaded extends DashboardState {
   /// The verdict derived from A and B.
   final ComparisonInsightEntity? comparisonInsight;
 
+  /// One result per selected department card (up to seven).
+  final List<ComparisonResult> comparisonResults;
+
   /// True while a background refresh runs over already-visible data.
   final bool isRefreshing;
 
-  /// True once both comparison sides are available.
-  bool get hasComparison => comparisonA != null && comparisonB != null;
+  bool get hasComparison => comparisonResults.isNotEmpty;
 
   DashboardLoaded copyWith({
     DashboardStatsEntity? stats,
@@ -78,6 +82,7 @@ class DashboardLoaded extends DashboardState {
     Object? comparisonA = _unset,
     Object? comparisonB = _unset,
     Object? comparisonInsight = _unset,
+    List<ComparisonResult>? comparisonResults,
     bool? isRefreshing,
   }) => DashboardLoaded(
     stats: stats ?? this.stats,
@@ -97,6 +102,7 @@ class DashboardLoaded extends DashboardState {
     comparisonInsight: comparisonInsight == _unset
         ? this.comparisonInsight
         : comparisonInsight as ComparisonInsightEntity?,
+    comparisonResults: comparisonResults ?? this.comparisonResults,
     isRefreshing: isRefreshing ?? this.isRefreshing,
   );
 
@@ -111,6 +117,7 @@ class DashboardLoaded extends DashboardState {
     comparisonA,
     comparisonB,
     comparisonInsight,
+    comparisonResults,
     isRefreshing,
   ];
 }
@@ -129,6 +136,7 @@ class DashboardPartialLoaded extends DashboardLoaded {
     super.comparisonA,
     super.comparisonB,
     super.comparisonInsight,
+    super.comparisonResults,
     super.isRefreshing,
   });
 
@@ -141,4 +149,3 @@ class DashboardPartialLoaded extends DashboardLoaded {
 /// Sentinel distinguishing "argument omitted" from "explicitly passed null",
 /// so [DashboardLoaded.copyWith] can clear the nullable `comparison` field.
 const Object _unset = Object();
-

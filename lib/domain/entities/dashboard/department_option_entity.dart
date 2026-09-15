@@ -70,7 +70,6 @@ class DepartmentOption extends Equatable {
       collection: 'cuttings',
       dateField: 'cuttingDate',
       quantityField: 'cuttingQuantity',
-      valueField: 'cuttingValue',
     ),
     DepartmentOption(
       label: 'Sewing',

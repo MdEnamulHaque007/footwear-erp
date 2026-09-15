@@ -60,6 +60,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         actions: [
           IconButton(
+            tooltip: 'Time-Lapse Report',
+            icon: const Icon(Icons.timeline_outlined),
+            onPressed: () => context.go(RouteConstants.timelapseDashboard),
+          ),
+          IconButton(
             tooltip: 'Refresh',
             icon: const Icon(Icons.refresh),
             onPressed: _refresh,

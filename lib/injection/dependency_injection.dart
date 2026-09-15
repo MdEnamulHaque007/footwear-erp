@@ -127,7 +127,9 @@ import '../domain/usecases/issue/update_issue_usecase.dart';
 import '../domain/usecases/issue/delete_issue_usecase.dart';
 import '../domain/usecases/issue/validate_issue_quantity_usecase.dart';
 import '../data/repositories/dashboard_repository.dart';
+import '../data/repositories/timelapse_repository.dart';
 import '../domain/repositories/i_dashboard_repository.dart';
+import '../domain/repositories/i_timelapse_repository.dart';
 import '../domain/usecases/dashboard/get_comparison_data_usecase.dart';
 import '../domain/usecases/dashboard/get_dashboard_stats_usecase.dart';
 import '../domain/usecases/dashboard/get_factory_comparison_usecase.dart';
@@ -135,7 +137,9 @@ import '../domain/usecases/dashboard/get_module_distribution_usecase.dart';
 import '../domain/usecases/dashboard/get_production_trend_usecase.dart';
 import '../domain/usecases/dashboard/get_quick_stats_usecase.dart';
 import '../domain/usecases/dashboard/get_recent_activities_usecase.dart';
+import '../domain/usecases/timelapse/get_timelapse_data_usecase.dart';
 import '../presentation/blocs/dashboard/dashboard_bloc.dart';
+import '../presentation/blocs/timelapse/timelapse_bloc.dart';
 import '../presentation/blocs/auth/auth_bloc.dart';
 import '../presentation/blocs/role_management/role_management_bloc.dart';
 import '../presentation/blocs/user_management/user_management_bloc.dart';
@@ -315,6 +319,7 @@ Future<void> setupLocator() async {
     () => BootstrapAdminProfileUseCase(getIt<IUserRepository>()),
   );
   getIt.registerLazySingleton<IDashboardRepository>(DashboardRepository.new);
+  getIt.registerLazySingleton<ITimelapseRepository>(TimelapseRepository.new);
   getIt.registerLazySingleton(
     () => GetDashboardStatsUseCase(getIt<IDashboardRepository>()),
   );
@@ -336,6 +341,9 @@ Future<void> setupLocator() async {
   getIt.registerLazySingleton(
     () => GetComparisonDataUseCase(getIt<IDashboardRepository>()),
   );
+  getIt.registerLazySingleton(
+    () => GetTimelapseDataUseCase(getIt<ITimelapseRepository>()),
+  );
   getIt.registerFactory(
     () => DashboardBloc(
       getStats: getIt<GetDashboardStatsUseCase>(),
@@ -345,6 +353,11 @@ Future<void> setupLocator() async {
       getFactoryComparison: getIt<GetFactoryComparisonUseCase>(),
       getModuleDistribution: getIt<GetModuleDistributionUseCase>(),
       getComparisonData: getIt<GetComparisonDataUseCase>(),
+    ),
+  );
+  getIt.registerFactory(
+    () => TimelapseBloc(
+      getTimelapseData: getIt<GetTimelapseDataUseCase>(),
     ),
   );
   getIt.registerLazySingleton(

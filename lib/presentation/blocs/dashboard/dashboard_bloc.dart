@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
 import '../../../domain/entities/dashboard/comparison_data_entity.dart';
+import '../../../domain/entities/dashboard/comparison_item_entity.dart';
 import '../../../domain/entities/dashboard/dashboard_activity_entity.dart';
 import '../../../domain/entities/dashboard/dashboard_chart_data_entity.dart';
 import '../../../domain/entities/dashboard/dashboard_quick_stats_entity.dart';
@@ -97,7 +98,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     emit(const DashboardInitial());
   }
 
-  /// Compares two independently chosen departments over two date ranges.
+  /// Resolves one to seven independently configured department cards in
+  /// parallel. A failed card is omitted without blanking the dashboard.
   ///
   /// Both sides are fetched in parallel; a failure clears the panel rather than
   /// emitting [DashboardError], because this runs from the panel's own
@@ -107,36 +109,28 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     LoadComparisonData event,
     Emitter<DashboardState> emit,
   ) async {
-    final results = await Future.wait([
-      getComparisonData(
-        collection: event.departmentA.collection,
-        dateField: event.departmentA.dateField,
-        quantityField: event.departmentA.quantityField,
-        fromDate: event.fromA,
-        toDate: event.toA,
-        label: 'Side A',
-        department: event.departmentA.label,
-      ),
-      getComparisonData(
-        collection: event.departmentB.collection,
-        dateField: event.departmentB.dateField,
-        quantityField: event.departmentB.quantityField,
-        fromDate: event.fromB,
-        toDate: event.toB,
-        label: 'Side B',
-        department: event.departmentB.label,
-      ),
-    ]);
+    final items = event.items.take(7).toList();
+    final results = await Future.wait<ComparisonResult?>(
+      items.map((item) async {
+        final result = await getComparisonData(
+          collection: item.department.collection,
+          dateField: item.department.dateField,
+          quantityField: item.department.quantityField,
+          fromDate: item.fromDate,
+          toDate: item.toDate,
+          label: item.id,
+          department: item.department.label,
+        );
+        return result.fold<ComparisonResult?>(
+          (_) => null,
+          (data) => ComparisonResult(item: item, data: data),
+        );
+      }),
+    );
     if (emit.isDone) return;
-
-    final sideA = results[0].fold<ComparisonRangeEntity?>(
-      (_) => null,
-      (value) => value,
-    );
-    final sideB = results[1].fold<ComparisonRangeEntity?>(
-      (_) => null,
-      (value) => value,
-    );
+    final comparisonResults = results.whereType<ComparisonResult>().toList();
+    final sideA = comparisonResults.isEmpty ? null : comparisonResults.first.data;
+    final sideB = comparisonResults.length < 2 ? null : comparisonResults[1].data;
     final insight = (sideA == null || sideB == null)
         ? null
         : _buildInsight(sideA, sideB);
@@ -148,6 +142,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           comparisonA: sideA,
           comparisonB: sideB,
           comparisonInsight: insight,
+          comparisonResults: comparisonResults,
           isRefreshing: false,
         ),
       );
@@ -157,6 +152,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           comparisonA: sideA,
           comparisonB: sideB,
           comparisonInsight: insight,
+          comparisonResults: comparisonResults,
         ),
       );
     }

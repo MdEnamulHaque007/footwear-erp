@@ -49,7 +49,7 @@ class GetProductionAvailabilityUseCase {
         ProductionAvailability(
           sewingQuantity: sewing,
           producedQuantity: produced,
-          availableQuantity: sewing - produced,
+          availableQuantity: (sewing - produced).clamp(0, sewing).toInt(),
         ),
       );
     } catch (_) {

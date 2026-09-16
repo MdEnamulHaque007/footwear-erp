@@ -45,7 +45,6 @@ class IssueEntity {
     this.unitPrice = 0,
     this.issueValue = 0,
     this.productionQuantity = 0,
-    this.availableQuantity = 0,
     this.remarks = '',
     this.source,
     this.syncStatus,
@@ -81,9 +80,6 @@ class IssueEntity {
 
   /// Cumulative Production quantity completed on or before [issueDate].
   final int productionQuantity;
-
-  /// Production − previous Issue for this PO line, captured at save time.
-  final int availableQuantity;
 
   final String remarks;
 

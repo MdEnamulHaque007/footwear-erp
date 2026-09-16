@@ -7,6 +7,7 @@ import '../../../domain/entities/po_entity.dart';
 import '../../blocs/purchase_order/po_bloc.dart';
 import '../../blocs/purchase_order/po_event.dart';
 import '../../blocs/purchase_order/po_state.dart';
+import '../../widgets/excel_column_filter_header.dart';
 
 class POListScreen extends StatefulWidget {
   const POListScreen({super.key});
@@ -20,6 +21,28 @@ class _POListScreenState extends State<POListScreen> {
   final _horizontal = ScrollController();
   final _searchController = TextEditingController();
   bool _searching = false;
+  final Map<String, String> _columnFilters = {};
+
+  void _setColumnFilter(String key, String value) {
+    setState(() {
+      if (value.isEmpty) {
+        _columnFilters.remove(key);
+      } else {
+        _columnFilters[key] = value;
+      }
+    });
+  }
+
+  bool _matchesColumnFilters(POEntity item) {
+    return ExcelColumnFilterHeader.matches(_columnFilters, {
+      'sl': item.sl,
+      'date': DateFormat('dd/MM/yyyy').format(item.poDate),
+      'po': item.poNo,
+      'quantity': item.totalQuantity,
+      'value': item.totalValue.toStringAsFixed(2),
+      'entry': item.entryPerson,
+    });
+  }
 
   @override
   void initState() {
@@ -64,6 +87,7 @@ class _POListScreenState extends State<POListScreen> {
             )
           : const Text('Purchase Orders'),
       actions: [
+        _totalQuantityBadge(),
         IconButton(
           onPressed: () {
             setState(() {
@@ -121,20 +145,52 @@ class _POListScreenState extends State<POListScreen> {
             : state is POSearchLoaded
                 ? state.items
                 : <POEntity>[];
-        if (items.isEmpty &&
+        final visibleItems = items.where(_matchesColumnFilters).toList();
+        if (visibleItems.isEmpty &&
             state is! POLoading &&
             state is! PORefreshing &&
             state is! POSearching) {
           return const Center(child: Text('No Purchase Orders Found'));
         }
         return _PODataTable(
-          items: items,
+          items: visibleItems,
           loadingMore: state is POLoading,
           vertical: _vertical,
           horizontal: _horizontal,
           onDelete: _confirmDelete,
+          filters: _columnFilters,
+          onFilterChanged: _setColumnFilter,
         );
       },
+    ),
+  );
+
+  Widget _totalQuantityBadge() => BlocBuilder<POBloc, POState>(
+    buildWhen: (_, state) => state is POLoaded || state is POSearchLoaded,
+    builder: (context, state) {
+      final items = state is POLoaded
+          ? state.items
+          : state is POSearchLoaded
+          ? state.items
+          : const <POEntity>[];
+      final total = items
+          .where(_matchesColumnFilters)
+          .fold<int>(0, (sum, item) => sum + item.totalQuantity);
+      return _totalBadge(total);
+    },
+  );
+
+  Widget _totalBadge(int total) => Padding(
+    padding: const EdgeInsets.only(right: 4),
+    child: Center(
+      child: Tooltip(
+        message: 'Total quantity in the current filtered list',
+        child: Text(
+          'Total Qty\n$total',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.labelMedium,
+        ),
+      ),
     ),
   );
 
@@ -171,6 +227,8 @@ class _PODataTable extends StatelessWidget {
     required this.vertical,
     required this.horizontal,
     required this.onDelete,
+    required this.filters,
+    required this.onFilterChanged,
   });
 
   final List<POEntity> items;
@@ -178,6 +236,8 @@ class _PODataTable extends StatelessWidget {
   final ScrollController vertical;
   final ScrollController horizontal;
   final ValueChanged<POEntity> onDelete;
+  final Map<String, String> filters;
+  final void Function(String key, String value) onFilterChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -267,9 +327,7 @@ class _PODataTable extends StatelessWidget {
           child: SingleChildScrollView(
             controller: horizontal,
             scrollDirection: Axis.horizontal,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 1100),
-              child: DataTable(
+            child: DataTable(
                 columnSpacing: 24,
                 horizontalMargin: 12,
                 border: TableBorder.all(color: Colors.grey.shade300),
@@ -277,43 +335,13 @@ class _PODataTable extends StatelessWidget {
                   Colors.blueGrey.shade50,
                 ),
                 dataRowMinHeight: 48,
-                columns: const [
-                  DataColumn(
-                    label: Text(
-                      'SL',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  DataColumn(
-                    label: Text(
-                      'PO Date',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  DataColumn(
-                    label: Text(
-                      'PO No',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  DataColumn(
-                    label: Text(
-                      'Total Qty',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  DataColumn(
-                    label: Text(
-                      'Total Value',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  DataColumn(
-                    label: Text(
-                      'Entry Person',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
+                columns: [
+                  _filterColumn('SL', 'sl'),
+                  _filterColumn('PO Date', 'date'),
+                  _filterColumn('PO No', 'po'),
+                  _filterColumn('Total Qty', 'quantity'),
+                  _filterColumn('Total Value', 'value'),
+                  _filterColumn('Entry Person', 'entry'),
                   DataColumn(
                     label: Text(
                       'Action',
@@ -322,10 +350,19 @@ class _PODataTable extends StatelessWidget {
                   ),
                 ],
                 rows: rows,
-              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  DataColumn _filterColumn(String label, String key) {
+    return DataColumn(
+      label: ExcelColumnFilterHeader(
+        label: label,
+        value: filters[key] ?? '',
+        onChanged: (value) => onFilterChanged(key, value),
       ),
     );
   }

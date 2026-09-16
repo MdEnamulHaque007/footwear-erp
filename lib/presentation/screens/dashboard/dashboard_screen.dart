@@ -50,42 +50,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           children: [
             const WelcomeHeaderWidget(),
-            const SizedBox(height: 24),
-            Card(
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: () => context.push(RouteConstants.timelapseDashboard),
-                child: const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 28,
-                        child: Icon(Icons.movie_creation_outlined, size: 30),
-                      ),
-                      SizedBox(width: 18),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '🎬 Time-Lapse Report',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text('Watch your production data come alive'),
-                          ],
-                        ),
-                      ),
-                      Icon(Icons.arrow_forward_ios, size: 18),
-                    ],
-                  ),
-                ),
-              ),
-            ),
           ],
         ),
       ),

@@ -193,7 +193,6 @@ class CuttingRepository implements ICuttingRepository {
           tagNo: tagNo,
           poTagNo: item.poTagNo.isEmpty ? tagNo : item.poTagNo,
           poQuantity: poQuantity,
-          availableQuantity: poQuantity - item.cuttingQuantity,
         ),
       );
     }).toList();
@@ -304,7 +303,6 @@ class CuttingRepository implements ICuttingRepository {
         : _collection.doc();
     try {
       final data = CuttingModel.fromEntity(item).toFirestore();
-      data['id'] = ref.id;
       await _db.runTransaction<void>((transaction) async {
         // 1. Resolve the PO for the line quantity (query outside the
         // transaction; the document itself is re-read transactionally).
@@ -355,11 +353,6 @@ class CuttingRepository implements ICuttingRepository {
           );
         }
 
-        // 4. Persist the quantity snapshot atomically.
-        data['poQuantity'] = poQuantity;
-        data['availableQuantity'] = poQuantity > 0
-            ? poQuantity - used - item.cuttingQuantity
-            : item.availableQuantity;
         if (isUpdate) {
           final snapshot = await transaction.get(ref);
           if (!snapshot.exists) {
@@ -411,7 +404,6 @@ class CuttingRepository implements ICuttingRepository {
     try {
       final ref = _collection.doc();
       final data = CuttingModel.fromEntity(item).toFirestore();
-      data['id'] = ref.id;
       await ref.set(data);
       return const Right(null);
     } on FirebaseException catch (e) {

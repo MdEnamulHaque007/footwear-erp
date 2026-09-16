@@ -110,7 +110,9 @@ class CuttingBloc extends Bloc<CuttingEvent, CuttingState> {
             item: item,
             related: related,
             totalQuantity: total,
-            availableQuantity: item.poQuantity - total,
+            availableQuantity: (item.poQuantity - total)
+                .clamp(0, item.poQuantity)
+                .toInt(),
           ),
         );
       });
@@ -220,7 +222,10 @@ class CuttingBloc extends Bloc<CuttingEvent, CuttingState> {
       );
       if (emit.isDone) return;
       emit(
-        AvailableQuantityLoaded(item.poQuantity - cumulative, item.poQuantity),
+        AvailableQuantityLoaded(
+          (item.poQuantity - cumulative).clamp(0, item.poQuantity).toInt(),
+          item.poQuantity,
+        ),
       );
     });
     on<ValidateCutting>((event, emit) async {

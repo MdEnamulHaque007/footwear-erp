@@ -5,6 +5,7 @@ import '../../../domain/entities/cutting_entity.dart';
 import '../../blocs/cutting/cutting_bloc.dart';
 import '../../blocs/cutting/cutting_event.dart';
 import '../../blocs/cutting/cutting_state.dart';
+import '../../widgets/excel_column_filter_header.dart';
 
 class CuttingListScreen extends StatefulWidget {
   const CuttingListScreen({super.key});
@@ -16,8 +17,20 @@ class _CuttingListScreenState extends State<CuttingListScreen> {
   final verticalScroll = ScrollController();
   final horizontalScroll = ScrollController();
   String query = '';
+  final Map<String, String> _columnFilters = {};
   int _pageSize = 20;
   int _currentPage = 0;
+
+  void _setColumnFilter(String key, String value) {
+    setState(() {
+      if (value.isEmpty) {
+        _columnFilters.remove(key);
+      } else {
+        _columnFilters[key] = value;
+      }
+      _currentPage = 0;
+    });
+  }
 
   @override
   void initState() {
@@ -36,10 +49,22 @@ class _CuttingListScreenState extends State<CuttingListScreen> {
 
   bool _matches(CuttingEntity item) {
     final value = query.toLowerCase();
-    return item.poNo.toLowerCase().contains(value) ||
+    final matchesSearch = item.poNo.toLowerCase().contains(value) ||
         item.voucherNo.toLowerCase().contains(value) ||
         item.tagNo.toLowerCase().contains(value) ||
         item.poTagNo.toLowerCase().contains(value);
+    return matchesSearch &&
+        ExcelColumnFilterHeader.matches(_columnFilters, {
+          'date': '${item.cuttingDate.day.toString().padLeft(2, '0')}/${item.cuttingDate.month.toString().padLeft(2, '0')}/${item.cuttingDate.year}',
+          'voucher': item.voucherNo,
+          'factory': item.factoryName,
+          'project': item.project,
+          'po': item.poNo,
+          'article': item.article,
+          'color': item.color,
+          'quantity': item.cuttingQuantity,
+          'entry': item.entryPerson,
+        });
   }
 
   void _openDetail(CuttingEntity item) {
@@ -93,6 +118,7 @@ class _CuttingListScreenState extends State<CuttingListScreen> {
       ),
       title: const Text('Cutting'),
       actions: [
+        _totalQuantityBadge(),
         IconButton(
           tooltip: 'Search',
           icon: const Icon(Icons.search),
@@ -189,25 +215,23 @@ class _CuttingListScreenState extends State<CuttingListScreen> {
               child: SingleChildScrollView(
                 controller: horizontalScroll,
                 scrollDirection: Axis.horizontal,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 1800),
-                  child: DataTable(
+                child: DataTable(
                     columnSpacing: 14,
                     dataRowMinHeight: 40,
                     dataRowMaxHeight: 50,
                     headingRowColor: WidgetStatePropertyAll(
                       Theme.of(context).colorScheme.surfaceContainerHighest,
                     ),
-                    columns: const [
-                      DataColumn(label: Text('Cutting Date')),
-                      DataColumn(label: Text('Voucher No')),
-                      DataColumn(label: Text('Factory')),
-                      DataColumn(label: Text('Project')),
-                      DataColumn(label: Text('PO No')),
-                      DataColumn(label: Text('Article')),
-                      DataColumn(label: Text('Color')),
-                      DataColumn(label: Text('Cutting Qty')),
-                      DataColumn(label: Text('Entry Person')),
+                    columns: [
+                      _filterColumn('Cutting Date', 'date'),
+                      _filterColumn('Voucher No', 'voucher'),
+                      _filterColumn('Factory', 'factory'),
+                      _filterColumn('Project', 'project'),
+                      _filterColumn('PO No', 'po'),
+                      _filterColumn('Article', 'article'),
+                      _filterColumn('Color', 'color'),
+                      _filterColumn('Cutting Qty', 'quantity'),
+                      _filterColumn('Entry Person', 'entry'),
                       DataColumn(label: Text('Action')),
                     ],
                     rows: pageItems
@@ -266,7 +290,6 @@ class _CuttingListScreenState extends State<CuttingListScreen> {
                           ),
                         )
                         .toList(),
-                  ),
                 ),
               ),
             ),
@@ -304,7 +327,43 @@ class _CuttingListScreenState extends State<CuttingListScreen> {
     ),
   );
 
+  Widget _totalQuantityBadge() => BlocBuilder<CuttingBloc, CuttingState>(
+    buildWhen: (_, state) => state is CuttingLoaded,
+    builder: (context, state) {
+      final total = state is CuttingLoaded
+          ? state.items
+                .where(_matches)
+                .fold<int>(0, (sum, item) => sum + item.cuttingQuantity)
+          : 0;
+      return _totalBadge(total);
+    },
+  );
+
+  Widget _totalBadge(int total) => Padding(
+    padding: const EdgeInsets.only(right: 4),
+    child: Center(
+      child: Tooltip(
+        message: 'Total quantity in the current filtered list',
+        child: Text(
+          'Total Qty\n$total',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.labelMedium,
+        ),
+      ),
+    ),
+  );
+
   Widget _cell(String value) => Text(value, style: const TextStyle(fontSize: 12));
+
+  DataColumn _filterColumn(String label, String key) {
+    return DataColumn(
+      label: ExcelColumnFilterHeader(
+        label: label,
+        value: _columnFilters[key] ?? '',
+        onChanged: (value) => _setColumnFilter(key, value),
+      ),
+    );
+  }
 }
 
 class _CuttingSearchDelegate extends SearchDelegate<String?> {

@@ -50,7 +50,8 @@ class _CuttingFormScreenState extends State<CuttingFormScreen> {
       article = item.article;
       color = item.color;
       poQuantity = item.poQuantity;
-      availableQuantity = item.poQuantity - item.cuttingQuantity;
+      availableQuantity =
+          (item.poQuantity - item.cuttingQuantity).clamp(0, item.poQuantity).toInt();
       quantity.text = item.cuttingQuantity.toString();
       cuttingDate = item.cuttingDate;
       cuttingDateController.text = _formatDate(item.cuttingDate);
@@ -59,7 +60,11 @@ class _CuttingFormScreenState extends State<CuttingFormScreen> {
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<CuttingBloc>().add(LoadPONoList());
-      if (widget.initialItem == null) _loadVoucher(date);
+      if (widget.initialItem == null) {
+        _loadVoucher(date);
+      } else if (poNo != null && article != null && color != null) {
+        context.read<CuttingBloc>().add(LoadPOQuantity(poNo!, article!, color!));
+      }
     });
   }
 

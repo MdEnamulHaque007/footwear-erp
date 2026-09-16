@@ -5,6 +5,7 @@ import '../../../domain/entities/issue_entity.dart';
 import '../../blocs/issue/issue_bloc.dart';
 import '../../blocs/issue/issue_event.dart';
 import '../../blocs/issue/issue_state.dart';
+import '../../widgets/excel_column_filter_header.dart';
 
 /// Excel-style Issue list: serial number, horizontal + vertical scroll and
 /// double-click to open the detail view.
@@ -19,6 +20,17 @@ class _IssueListScreenState extends State<IssueListScreen> {
   final verticalScroll = ScrollController();
   final horizontalScroll = ScrollController();
   String query = '';
+  final Map<String, String> _columnFilters = {};
+
+  void _setColumnFilter(String key, String value) {
+    setState(() {
+      if (value.isEmpty) {
+        _columnFilters.remove(key);
+      } else {
+        _columnFilters[key] = value;
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -43,12 +55,26 @@ class _IssueListScreenState extends State<IssueListScreen> {
 
   bool _matches(IssueEntity item) {
     final value = query.toLowerCase();
-    if (value.isEmpty) return true;
-    return item.poNo.toLowerCase().contains(value) ||
+    final matchesSearch = value.isEmpty ||
+        item.poNo.toLowerCase().contains(value) ||
         item.voucherNo.toLowerCase().contains(value) ||
         item.poTagNo.toLowerCase().contains(value) ||
         item.article.toLowerCase().contains(value) ||
         item.color.toLowerCase().contains(value);
+    return matchesSearch &&
+        ExcelColumnFilterHeader.matches(_columnFilters, {
+          'sl': item.sl,
+          'date': _date(item.issueDate),
+          'voucher': item.voucherNo,
+          'factory': item.factoryName,
+          'po': item.poNo,
+          'tag': item.effectiveTagNo,
+          'article': item.article,
+          'color': item.color,
+          'quantity': item.quantity,
+          'value': _money(item.issueValue),
+          'entry': item.entryPerson,
+        });
   }
 
   Future<void> _delete(IssueEntity item) async {
@@ -97,6 +123,7 @@ class _IssueListScreenState extends State<IssueListScreen> {
       ),
       title: const Text('Issue'),
       actions: [
+        _totalQuantityBadge(),
         IconButton(
           tooltip: 'Search',
           icon: const Icon(Icons.search),
@@ -152,6 +179,32 @@ class _IssueListScreenState extends State<IssueListScreen> {
     ),
   );
 
+  Widget _totalQuantityBadge() => BlocBuilder<IssueBloc, IssueState>(
+    buildWhen: (_, state) => state is IssueLoaded,
+    builder: (context, state) {
+      final total = state is IssueLoaded
+          ? state.items
+                .where(_matches)
+                .fold<int>(0, (sum, item) => sum + item.quantity)
+          : 0;
+      return _totalBadge(total);
+    },
+  );
+
+  Widget _totalBadge(int total) => Padding(
+    padding: const EdgeInsets.only(right: 4),
+    child: Center(
+      child: Tooltip(
+        message: 'Total quantity in the current filtered list',
+        child: Text(
+          'Total Qty\n$total',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.labelMedium,
+        ),
+      ),
+    ),
+  );
+
   Widget _table(List<IssueEntity> items) => Scrollbar(
     controller: horizontalScroll,
     thumbVisibility: true,
@@ -165,25 +218,23 @@ class _IssueListScreenState extends State<IssueListScreen> {
         child: SingleChildScrollView(
           controller: horizontalScroll,
           scrollDirection: Axis.horizontal,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 1900),
-            child: DataTable(
+          child: DataTable(
               columnSpacing: 14,
               headingRowColor: WidgetStatePropertyAll(
                 Theme.of(context).colorScheme.surfaceContainerHighest,
               ),
-              columns: const [
-                DataColumn(label: Text('SL')),
-                DataColumn(label: Text('Issue Date')),
-                DataColumn(label: Text('Voucher')),
-                DataColumn(label: Text('Factory')),
-                DataColumn(label: Text('PO No')),
-                DataColumn(label: Text('Tag No')),
-                DataColumn(label: Text('Article')),
-                DataColumn(label: Text('Color')),
-                DataColumn(label: Text('Qty')),
-                DataColumn(label: Text('Value')),
-                DataColumn(label: Text('Entry By')),
+              columns: [
+                _filterColumn('SL', 'sl'),
+                _filterColumn('Issue Date', 'date'),
+                _filterColumn('Voucher', 'voucher'),
+                _filterColumn('Factory', 'factory'),
+                _filterColumn('PO No', 'po'),
+                _filterColumn('Tag No', 'tag'),
+                _filterColumn('Article', 'article'),
+                _filterColumn('Color', 'color'),
+                _filterColumn('Qty', 'quantity'),
+                _filterColumn('Value', 'value'),
+                _filterColumn('Entry By', 'entry'),
                 DataColumn(label: Text('Action')),
               ],
               rows: items.asMap().entries.map((entry) {
@@ -235,12 +286,21 @@ class _IssueListScreenState extends State<IssueListScreen> {
                   ],
                 );
               }).toList(),
-            ),
           ),
         ),
       ),
     ),
   );
+
+  DataColumn _filterColumn(String label, String key) {
+    return DataColumn(
+      label: ExcelColumnFilterHeader(
+        label: label,
+        value: _columnFilters[key] ?? '',
+        onChanged: (value) => _setColumnFilter(key, value),
+      ),
+    );
+  }
 }
 
 class _IssueSearchDelegate extends SearchDelegate<String?> {

@@ -27,7 +27,7 @@ class IssueRepository implements IIssueRepository {
   }) async {
     try {
       if (page == 0) _lastDoc = null;
-      var query = _collection.orderBy('sl');
+      var query = _collection.orderBy('issueDate', descending: true);
       if (page > 0 && _lastDoc != null) {
         query = query.startAfterDocument(_lastDoc!);
       }
@@ -298,10 +298,6 @@ class IssueRepository implements IIssueRepository {
       }
 
       final data = IssueModel.fromEntity(item).toFirestore();
-      data['id'] = ref.id;
-      data['productionQuantity'] = productionQty;
-      data['availableQuantity'] = available - item.quantity;
-      data['issueValue'] = item.issueValue;
       await _db.runTransaction<void>((transaction) async {
         if (isUpdate) {
           final snapshot = await transaction.get(ref);
@@ -332,7 +328,6 @@ class IssueRepository implements IIssueRepository {
     try {
       final ref = _collection.doc();
       final data = IssueModel.fromEntity(item).toFirestore();
-      data['id'] = ref.id;
       await ref.set(data);
       return const Right(null);
     } on FirebaseException catch (e) {

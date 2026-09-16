@@ -29,7 +29,7 @@ class ProductionRepository implements IProductionRepository {
   }) async {
     try {
       if (page == 0) _lastDoc = null;
-      var query = _collection.orderBy('sl');
+      var query = _collection.orderBy('productionDate', descending: true);
       if (page > 0 && _lastDoc != null) {
         query = query.startAfterDocument(_lastDoc!);
       }
@@ -303,10 +303,6 @@ class ProductionRepository implements IProductionRepository {
 
       // 4. Atomic write.
       final data = ProductionModel.fromEntity(item).toFirestore();
-      data['id'] = ref.id;
-      data['sewingQuantity'] = sewingQty;
-      data['availableQuantity'] = available - item.quantity;
-      data['productionValue'] = item.productionValue;
       await _db.runTransaction<void>((transaction) async {
         if (isUpdate) {
           final snapshot = await transaction.get(ref);
@@ -337,7 +333,6 @@ class ProductionRepository implements IProductionRepository {
     try {
       final ref = _collection.doc();
       final data = ProductionModel.fromEntity(item).toFirestore();
-      data['id'] = ref.id;
       await ref.set(data);
       return const Right(null);
     } on FirebaseException catch (e) {

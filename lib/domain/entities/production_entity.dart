@@ -45,7 +45,6 @@ class ProductionEntity {
     this.unitPrice = 0,
     this.productionValue = 0,
     this.sewingQuantity = 0,
-    this.availableQuantity = 0,
     this.remarks = '',
     this.source,
     this.syncStatus,
@@ -84,9 +83,6 @@ class ProductionEntity {
 
   /// Cumulative Sewing quantity completed on or before [productionDate].
   final int sewingQuantity;
-
-  /// Sewing − previous Production for this PO line, captured at save time.
-  final int availableQuantity;
 
   final String remarks;
 

@@ -34,7 +34,7 @@ class GetExportAvailabilityUseCase {
         ExportAvailability(
           issueQuantity: issue,
           exportQuantity: exported,
-          availableQuantity: issue - exported,
+          availableQuantity: (issue - exported).clamp(0, issue).toInt(),
         ),
       );
     } catch (_) {

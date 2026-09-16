@@ -20,7 +20,6 @@ class ProductionModel extends ProductionEntity {
     super.unitPrice,
     super.productionValue,
     super.sewingQuantity,
-    super.availableQuantity,
     super.remarks,
     super.source,
     super.syncStatus,
@@ -46,7 +45,6 @@ class ProductionModel extends ProductionEntity {
     unitPrice: e.unitPrice,
     productionValue: e.productionValue,
     sewingQuantity: e.sewingQuantity,
-    availableQuantity: e.availableQuantity,
     remarks: e.remarks,
     source: e.source,
     syncStatus: e.syncStatus,
@@ -78,7 +76,6 @@ class ProductionModel extends ProductionEntity {
       unitPrice: _double(d['unitPrice']),
       productionValue: _double(d['productionValue']),
       sewingQuantity: _int(d['sewingQuantity']),
-      availableQuantity: _int(d['availableQuantity']),
       remarks: _string(d['remarks']),
       source: d['source'] as String?,
       syncStatus: d['syncStatus'] as String?,
@@ -88,24 +85,15 @@ class ProductionModel extends ProductionEntity {
   }
 
   Map<String, dynamic> toFirestore() => {
-    'sl': sl,
     'voucherNo': voucherNo,
     'productionDate': Timestamp.fromDate(productionDate),
-    'poTagNo': poTagNo,
-    'tagNo': effectiveTagNo,
     'quantity': quantity,
     'productionQuantity': quantity,
     'entryPerson': entryPerson,
     'poNo': poNo,
-    'company': company,
-    'project': project,
     'article': article,
     'color': color,
     'factoryName': factoryName,
-    'unitPrice': unitPrice,
-    'productionValue': productionValue,
-    'sewingQuantity': sewingQuantity,
-    'availableQuantity': availableQuantity,
     'remarks': remarks,
     'createdAt': createdAt == null
         ? Timestamp.now()

@@ -34,7 +34,7 @@ class GetIssueAvailabilityUseCase {
         IssueAvailability(
           productionQuantity: production,
           issueQuantity: issued,
-          availableQuantity: production - issued,
+          availableQuantity: (production - issued).clamp(0, production).toInt(),
         ),
       );
     } catch (_) {

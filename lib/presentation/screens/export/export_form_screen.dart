@@ -73,7 +73,7 @@ class _ExportFormScreenState extends State<ExportFormScreen> {
       unitPrice = item.unitPrice;
       exportValue = item.exportValue;
       issueQuantity = item.issueQuantity;
-      availableQuantity = item.availableQuantity;
+      availableQuantity = 0;
       quantity.text = item.quantity.toString();
       exportDate = item.exportDate;
       exportDateController.text = _formatDate(item.exportDate);
@@ -88,6 +88,9 @@ class _ExportFormScreenState extends State<ExportFormScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ExportBloc>().add(LoadPONoList());
+      if (widget.initialItem != null) {
+        _refreshAvailability();
+      }
     });
   }
 
@@ -264,7 +267,6 @@ class _ExportFormScreenState extends State<ExportFormScreen> {
       unitPrice: unitPrice,
       exportValue: exportValue,
       issueQuantity: issueQuantity,
-      availableQuantity: availableQuantity,
       remarks: remarks.text.trim(),
       source: widget.initialItem?.source,
       syncStatus: widget.initialItem?.syncStatus,

@@ -184,7 +184,7 @@ class SewingBloc extends Bloc<SewingEvent, SewingState> {
           related: related,
           cuttingQuantity: cuttingQty,
           totalSewingQuantity: total,
-          availableQuantity: cuttingQty - total,
+          availableQuantity: (cuttingQty - total).clamp(0, cuttingQty).toInt(),
         ),
       );
     });
@@ -237,7 +237,7 @@ class SewingBloc extends Bloc<SewingEvent, SewingState> {
         AvailableQuantityLoaded(
           cuttingQty: cuttingQty,
           sewingQty: sewingQty,
-          availableQty: cuttingQty - sewingQty,
+          availableQty: (cuttingQty - sewingQty).clamp(0, cuttingQty).toInt(),
         ),
       );
     });

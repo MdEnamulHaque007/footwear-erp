@@ -19,7 +19,6 @@ class SewingEntity {
     this.article = '',
     this.color = '',
     this.cuttingQuantity = 0,
-    this.availableQuantity = 0,
     this.sewingQuantity = 0,
     String? poTagNo,
     int? quantity,
@@ -53,10 +52,6 @@ class SewingEntity {
   /// Cumulative Cutting quantity for this PO line (Cutting records with
   /// `cuttingDate <= sewingDate`), captured at save time.
   final int cuttingQuantity;
-
-  /// Cumulative Cutting − cumulative Sewing for this PO line, captured at
-  /// save time.
-  final int availableQuantity;
 
   /// The sewing quantity entered in this entry.
   final int sewingQuantity;

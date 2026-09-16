@@ -73,7 +73,7 @@ class _IssueFormScreenState extends State<IssueFormScreen> {
       unitPrice = item.unitPrice;
       issueValue = item.issueValue;
       productionQuantity = item.productionQuantity;
-      availableQuantity = item.availableQuantity;
+      availableQuantity = 0;
       quantity.text = item.quantity.toString();
       issueDate = item.issueDate;
       issueDateController.text = _formatDate(item.issueDate);
@@ -88,6 +88,9 @@ class _IssueFormScreenState extends State<IssueFormScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<IssueBloc>().add(LoadPONoList());
+      if (widget.initialItem != null) {
+        _refreshAvailability();
+      }
     });
   }
 
@@ -264,7 +267,6 @@ class _IssueFormScreenState extends State<IssueFormScreen> {
       unitPrice: unitPrice,
       issueValue: issueValue,
       productionQuantity: productionQuantity,
-      availableQuantity: availableQuantity,
       remarks: remarks.text.trim(),
       source: widget.initialItem?.source,
       syncStatus: widget.initialItem?.syncStatus,

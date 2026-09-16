@@ -31,7 +31,7 @@ class SewingRepository implements ISewingRepository {
   }) async {
     try {
       if (page == 0) _lastDoc = null;
-      var query = _collection.orderBy('sl');
+      var query = _collection.orderBy('sewingDate', descending: true);
       if (page > 0 && _lastDoc != null) {
         query = query.startAfterDocument(_lastDoc!);
       }
@@ -234,9 +234,6 @@ class SewingRepository implements ISewingRepository {
       // 4. Atomic write, re-checking the persisted document inside the
       // transaction so a concurrent edit cannot silently over-consume.
       final data = SewingModel.fromEntity(item).toFirestore();
-      data['id'] = ref.id;
-      data['cuttingQuantity'] = cuttingQty;
-      data['availableQuantity'] = available - quantity;
       await _db.runTransaction<void>((transaction) async {
         if (isUpdate) {
           final snapshot = await transaction.get(ref);
@@ -267,7 +264,6 @@ class SewingRepository implements ISewingRepository {
     try {
       final ref = _collection.doc();
       final data = SewingModel.fromEntity(item).toFirestore();
-      data['id'] = ref.id;
       await ref.set(data);
       return const Right(null);
     } on FirebaseException catch (e) {

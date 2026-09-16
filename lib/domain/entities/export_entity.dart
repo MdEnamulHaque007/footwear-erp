@@ -44,7 +44,6 @@ class ExportEntity {
     this.unitPrice = 0,
     this.exportValue = 0,
     this.issueQuantity = 0,
-    this.availableQuantity = 0,
     this.remarks = '',
     this.source,
     this.syncStatus,
@@ -80,9 +79,6 @@ class ExportEntity {
 
   /// Cumulative Issue quantity completed on or before [exportDate].
   final int issueQuantity;
-
-  /// Issue − previous Export for this PO line, captured at save time.
-  final int availableQuantity;
 
   final String remarks;
 

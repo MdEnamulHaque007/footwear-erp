@@ -73,7 +73,7 @@ class _ProductionFormScreenState extends State<ProductionFormScreen> {
       unitPrice = item.unitPrice;
       productionValue = item.productionValue;
       sewingQuantity = item.sewingQuantity;
-      availableQuantity = item.availableQuantity;
+      availableQuantity = 0;
       // Pre-fill the dropdowns with the record's own values so the item list
       // always contains the current selection (avoids the assertion that fires
       // when a DropdownButton value has no matching item).
@@ -90,6 +90,9 @@ class _ProductionFormScreenState extends State<ProductionFormScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ProductionBloc>().add(LoadPONoList());
+      if (widget.initialItem != null) {
+        _refreshAvailability();
+      }
     });
   }
 
@@ -543,7 +546,6 @@ class _ProductionFormScreenState extends State<ProductionFormScreen> {
       unitPrice: unitPrice,
       productionValue: productionValue,
       sewingQuantity: sewingQuantity,
-      availableQuantity: availableQuantity,
       remarks: remarks.text.trim(),
       source: widget.initialItem?.source,
       syncStatus: widget.initialItem?.syncStatus,

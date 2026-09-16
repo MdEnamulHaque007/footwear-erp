@@ -27,7 +27,7 @@ class ExportRepository implements IExportRepository {
   }) async {
     try {
       if (page == 0) _lastDoc = null;
-      var query = _collection.orderBy('sl');
+      var query = _collection.orderBy('exportDate', descending: true);
       if (page > 0 && _lastDoc != null) {
         query = query.startAfterDocument(_lastDoc!);
       }
@@ -277,10 +277,6 @@ class ExportRepository implements IExportRepository {
       }
 
       final data = ExportModel.fromEntity(item).toFirestore();
-      data['id'] = ref.id;
-      data['issueQuantity'] = issueQty;
-      data['availableQuantity'] = available - item.quantity;
-      data['exportValue'] = item.exportValue;
       await _db.runTransaction<void>((transaction) async {
         if (isUpdate) {
           final snapshot = await transaction.get(ref);
@@ -311,7 +307,6 @@ class ExportRepository implements IExportRepository {
     try {
       final ref = _collection.doc();
       final data = ExportModel.fromEntity(item).toFirestore();
-      data['id'] = ref.id;
       await ref.set(data);
       return const Right(null);
     } on FirebaseException catch (e) {

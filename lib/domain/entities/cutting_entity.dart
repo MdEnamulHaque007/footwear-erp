@@ -42,7 +42,6 @@ class CuttingEntity {
     this.factoryName = '',
     required this.entryPerson,
     this.remarks = '',
-    this.availableQuantity = 0,
     this.source,
     this.syncStatus,
     this.createdAt,
@@ -78,9 +77,6 @@ class CuttingEntity {
   final String entryPerson;
   final String remarks;
 
-  /// PO quantity − cumulative Cutting for the line, captured at save time.
-  final int availableQuantity;
-
   /// Origin of the record: `manual` (app form) or `google_sheets` (import).
   final String? source;
 
@@ -111,7 +107,6 @@ class CuttingEntity {
     String? factoryName,
     String? entryPerson,
     String? remarks,
-    int? availableQuantity,
     String? source,
     String? syncStatus,
     DateTime? createdAt,
@@ -133,7 +128,6 @@ class CuttingEntity {
     factoryName: factoryName ?? this.factoryName,
     entryPerson: entryPerson ?? this.entryPerson,
     remarks: remarks ?? this.remarks,
-    availableQuantity: availableQuantity ?? this.availableQuantity,
     source: source ?? this.source,
     syncStatus: syncStatus ?? this.syncStatus,
     createdAt: createdAt ?? this.createdAt,

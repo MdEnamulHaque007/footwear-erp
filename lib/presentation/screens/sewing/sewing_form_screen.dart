@@ -67,7 +67,7 @@ class _SewingFormScreenState extends State<SewingFormScreen> {
       article = item.article;
       color = item.color;
       cuttingQuantity = item.cuttingQuantity;
-      availableQuantity = item.availableQuantity;
+      availableQuantity = 0;
       quantity.text = item.effectiveQuantity.toString();
       sewingDate = item.sewingDate;
       sewingDateController.text = _formatDate(item.sewingDate);
@@ -77,6 +77,9 @@ class _SewingFormScreenState extends State<SewingFormScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SewingBloc>().add(LoadPONoList());
+      if (widget.initialItem != null) {
+        _refreshAvailability();
+      }
     });
   }
 
@@ -455,7 +458,6 @@ class _SewingFormScreenState extends State<SewingFormScreen> {
       article: selectedArticle,
       color: selectedColor,
       cuttingQuantity: cuttingQuantity,
-      availableQuantity: availableQuantity,
       sewingQuantity: qty,
       factoryName: factory.text.trim(),
       entryPerson: entryPerson.text.trim(),

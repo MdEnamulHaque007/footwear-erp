@@ -7,6 +7,7 @@ import '../../blocs/master_lc/master_lc_bloc.dart';
 import '../../blocs/master_lc/master_lc_event.dart';
 import '../../blocs/master_lc/master_lc_state.dart';
 import '../../routes/route_constants.dart';
+import '../../widgets/excel_column_filter_header.dart';
 import '../../widgets/app_drawer.dart';
 
 class MasterLCListScreen extends StatefulWidget {
@@ -38,10 +39,21 @@ class _MasterLCListScreenState extends State<MasterLCListScreen> {
   /// controller) so a row-filtered view and the load-more trigger agree on what
   /// is being searched.
   String _searchQuery = '';
+  final Map<String, String> _columnFilters = {};
 
   /// True while a search-triggered page pull is already queued for this frame,
   /// so the same click cannot enqueue the fetch twice.
   bool _searchAutoLoadScheduled = false;
+
+  void _setColumnFilter(String key, String value) {
+    setState(() {
+      if (value.isEmpty) {
+        _columnFilters.remove(key);
+      } else {
+        _columnFilters[key] = value;
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -193,6 +205,7 @@ class _MasterLCListScreenState extends State<MasterLCListScreen> {
           ],
         ),
         actions: [
+          _totalQuantityBadge(),
           IconButton(
             tooltip: _searching ? 'Close search' : 'Search',
             icon: Icon(_searching ? Icons.close : Icons.search),
@@ -292,12 +305,42 @@ class _MasterLCListScreenState extends State<MasterLCListScreen> {
         onPressed: () => context.push('/master-lc/new'),
         child: const Icon(Icons.add),
       ),
-    );
+      );
   }
+
+  Widget _totalQuantityBadge() => BlocBuilder<MasterLCBloc, MasterLCState>(
+    buildWhen: (_, state) =>
+        state is MasterLCLoaded || state is MasterLCLoadingMore,
+    builder: (context, state) {
+      final items = state is MasterLCLoaded
+          ? state.items
+          : state is MasterLCLoadingMore
+          ? state.items
+          : _lastLoadedItems;
+      final total = _filteredItems(items).fold<int>(
+        0,
+        (sum, item) => sum + item.masterLcQuantity,
+      );
+      return _totalBadge(total);
+    },
+  );
+
+  Widget _totalBadge(int total) => Padding(
+    padding: const EdgeInsets.only(right: 4),
+    child: Center(
+      child: Tooltip(
+        message: 'Total quantity in the current filtered list',
+        child: Text(
+          'Total Qty\n$total',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.labelMedium,
+        ),
+      ),
+    ),
+  );
 
   List<MasterLCEntity> _filteredItems(List<MasterLCEntity> items) {
     final query = _searchQuery.trim().toLowerCase();
-    if (query.isEmpty) return items;
     // Runs over every row loaded so far, not just the first page, so records
     // pulled in by Load More are searchable too.
     //
@@ -307,12 +350,25 @@ class _MasterLCListScreenState extends State<MasterLCListScreen> {
     // on that throws `NoSuchMethodError` — which surfaces as
     // "Cannot read properties of undefined" under dart2js.
     return items.where((item) {
-      return _contains(item.tagNo, query) ||
+      final matchesSearch = query.isEmpty ||
+          _contains(item.tagNo, query) ||
           _contains(item.company, query) ||
           _contains(item.project, query) ||
           _contains(item.lcNo, query) ||
           _contains(item.scNo, query) ||
           _contains(item.ttNo, query);
+      return matchesSearch &&
+          ExcelColumnFilterHeader.matches(_columnFilters, {
+            'sl': item.sl,
+            'tag': item.tagNo,
+            'project': item.project,
+            'company': item.company,
+            'lc': item.lcNo,
+            'sc': item.scNo,
+            'tt': item.ttNo,
+            'quantity': item.masterLcQuantity,
+            'value': _formatValue(item.masterLcValue),
+          });
     }).toList();
   }
 
@@ -368,61 +424,16 @@ class _MasterLCListScreenState extends State<MasterLCListScreen> {
                     color: Colors.grey.shade300,
                     width: 1,
                   ),
-                  columns: const [
-                    DataColumn(
-                      label: Text(
-                        'SL',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    DataColumn(
-                      label: Text(
-                        'Tag No',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    DataColumn(
-                      label: Text(
-                        'Project',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    DataColumn(
-                      label: Text(
-                        'Company',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    DataColumn(
-                      label: Text(
-                        'LC No',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    DataColumn(
-                      label: Text(
-                        'SC No',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    DataColumn(
-                      label: Text(
-                        'TT No',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    DataColumn(
-                      label: Text(
-                        'Qty',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    DataColumn(
-                      label: Text(
-                        'Value (\$)',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
+                  columns: [
+                    _filterColumn('SL', 'sl'),
+                    _filterColumn('Tag No', 'tag'),
+                    _filterColumn('Project', 'project'),
+                    _filterColumn('Company', 'company'),
+                    _filterColumn('LC No', 'lc'),
+                    _filterColumn('SC No', 'sc'),
+                    _filterColumn('TT No', 'tt'),
+                    _filterColumn('Qty', 'quantity'),
+                    _filterColumn('Value (\$)', 'value'),
                     DataColumn(
                       label: Text(
                         'Action',
@@ -581,6 +592,16 @@ class _MasterLCListScreenState extends State<MasterLCListScreen> {
   String _formatQuantity(int value) => NumberFormat('#,##0').format(value);
   String _formatValue(double value) =>
       NumberFormat.currency(symbol: '\$', decimalDigits: 2).format(value);
+
+  DataColumn _filterColumn(String label, String key) {
+    return DataColumn(
+      label: ExcelColumnFilterHeader(
+        label: label,
+        value: _columnFilters[key] ?? '',
+        onChanged: (value) => _setColumnFilter(key, value),
+      ),
+    );
+  }
 
   void _showDeleteDialog(BuildContext context, String id, String tagNo) {
     showDialog(

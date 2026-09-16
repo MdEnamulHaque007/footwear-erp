@@ -89,6 +89,12 @@ class AppDrawer extends StatelessWidget {
                     _item(context, 'Reports', Icons.bar_chart, '/reports'),
                     _item(
                       context,
+                      'Time-Lapse Report',
+                      Icons.timeline_outlined,
+                      RouteConstants.timelapseDashboard,
+                    ),
+                    _item(
+                      context,
                       'Production Warehouse Report',
                       Icons.warehouse_outlined,
                       RouteConstants.warehouseReport,

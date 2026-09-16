@@ -11,7 +11,7 @@ import '../screens/auth/register_screen.dart';
 import '../screens/auth/reset_password_screen.dart';
 import '../screens/auth/unauthorized_screen.dart';
 import '../screens/auth/admin_bootstrap_screen.dart';
-import '../screens/dashboard/global_dashboard_screen.dart';
+import '../screens/dashboard/dashboard_screen.dart';
 import '../screens/dashboard/timelapse_dashboard_screen.dart';
 import '../screens/master_lc/master_lc_list_screen.dart';
 import '../screens/purchase_order/po_list_screen.dart';
@@ -62,7 +62,6 @@ import '../blocs/user_management/user_management_event.dart';
 import '../blocs/role_management/role_management_bloc.dart';
 import '../blocs/role_management/role_management_event.dart';
 import '../blocs/master_lc/master_lc_bloc.dart';
-import '../blocs/dashboard/dashboard_bloc.dart';
 import '../blocs/timelapse/timelapse_bloc.dart';
 import '../blocs/purchase_order/po_bloc.dart';
 import '../blocs/cutting/cutting_bloc.dart';
@@ -107,10 +106,7 @@ class AppRoutes {
         routes: [
           GoRoute(
             path: RouteConstants.dashboard,
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<DashboardBloc>(),
-              child: const GlobalDashboardScreen(),
-            ),
+            builder: (_, _) => const DashboardScreen(),
           ),
           GoRoute(
             path: RouteConstants.timelapseDashboard,

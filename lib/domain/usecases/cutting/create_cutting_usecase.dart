@@ -3,7 +3,9 @@ import '../../entities/cutting_entity.dart';
 import '../../repositories/i_cutting_repository.dart';
 import 'validate_cutting_quantity_usecase.dart';
 
-/// Creates a Cutting entry after validating the available PO quantity.
+/// Creates a Cutting entry after validating that its quantity is positive.
+/// Cutting is a soft-limit stage: exceeding the PO balance is allowed and the
+/// negative balance is retained for excess reporting.
 class CreateCuttingUseCase {
   CreateCuttingUseCase(this._repository, [this._validate]);
   final ICuttingRepository _repository;

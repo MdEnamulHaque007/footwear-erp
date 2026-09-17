@@ -50,8 +50,7 @@ class _CuttingFormScreenState extends State<CuttingFormScreen> {
       article = item.article;
       color = item.color;
       poQuantity = item.poQuantity;
-      availableQuantity =
-          (item.poQuantity - item.cuttingQuantity).clamp(0, item.poQuantity).toInt();
+      availableQuantity = item.poQuantity;
       quantity.text = item.cuttingQuantity.toString();
       cuttingDate = item.cuttingDate;
       cuttingDateController.text = _formatDate(item.cuttingDate);
@@ -63,7 +62,14 @@ class _CuttingFormScreenState extends State<CuttingFormScreen> {
       if (widget.initialItem == null) {
         _loadVoucher(date);
       } else if (poNo != null && article != null && color != null) {
-        context.read<CuttingBloc>().add(LoadPOQuantity(poNo!, article!, color!));
+        context.read<CuttingBloc>().add(
+          LoadPOQuantity(
+            poNo!,
+            article!,
+            color!,
+            excludingId: widget.initialItem?.id,
+          ),
+        );
       }
     });
   }
@@ -107,12 +113,10 @@ class _CuttingFormScreenState extends State<CuttingFormScreen> {
       );
       return;
     }
-    if (qty <= 0 || qty > availableQuantity) {
+    if (qty <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Cutting quantity must be between 1 and $availableQuantity',
-          ),
+        const SnackBar(
+          content: Text('Cutting quantity must be greater than zero'),
         ),
       );
       return;
@@ -227,6 +231,7 @@ class _CuttingFormScreenState extends State<CuttingFormScreen> {
                 widget.initialItem!.poNo,
                 widget.initialItem!.article,
                 widget.initialItem!.color,
+                excludingId: widget.initialItem!.id,
               ),
             );
           }
@@ -338,14 +343,23 @@ class _CuttingFormScreenState extends State<CuttingFormScreen> {
           ),
           _readOnlyController('PO Quantity', poQuantityController),
           _readOnlyController(
-            'Available Quantity',
+            'PO Balance Before Entry',
             availableQuantityController,
+          ),
+          Builder(
+            builder: (context) {
+              final entered = int.tryParse(quantity.text) ?? 0;
+              final projectedExcess = entered - availableQuantity;
+              final excess = projectedExcess > 0 ? projectedExcess : 0;
+              return _readOnly('Excess After Entry', excess.toString());
+            },
           ),
           TextField(
             controller: quantity,
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(labelText: 'Cutting Quantity *'),
             onChanged: (_) {
+              setState(() {});
               if (poNo != null && article != null && color != null) {
                 context.read<CuttingBloc>().add(
                   ValidateCutting(
@@ -354,6 +368,7 @@ class _CuttingFormScreenState extends State<CuttingFormScreen> {
                     color!,
                     poQuantity,
                     int.tryParse(quantity.text) ?? 0,
+                    excludingId: widget.initialItem?.id,
                   ),
                 );
               }

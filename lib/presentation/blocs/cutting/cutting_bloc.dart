@@ -219,11 +219,12 @@ class CuttingBloc extends Bloc<CuttingEvent, CuttingState> {
         poNo: event.poNo,
         article: event.article,
         color: event.color,
+        excludingId: event.excludingId,
       );
       if (emit.isDone) return;
       emit(
         AvailableQuantityLoaded(
-          (item.poQuantity - cumulative).clamp(0, item.poQuantity).toInt(),
+          item.poQuantity - cumulative,
           item.poQuantity,
         ),
       );
@@ -235,6 +236,7 @@ class CuttingBloc extends Bloc<CuttingEvent, CuttingState> {
         color: event.color,
         poQuantity: event.poQuantity,
         candidateQuantity: event.quantity,
+        excludingId: event.excludingId,
       );
       if (emit.isDone) return;
       result.fold(

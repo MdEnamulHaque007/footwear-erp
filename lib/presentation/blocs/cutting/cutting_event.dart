@@ -65,10 +65,11 @@ class LoadArticleColors extends CuttingEvent {
 }
 
 class LoadPOQuantity extends CuttingEvent {
-  LoadPOQuantity(this.poNo, this.article, this.color);
+  LoadPOQuantity(this.poNo, this.article, this.color, {this.excludingId});
   final String poNo;
   final String article;
   final String color;
+  final String? excludingId;
 }
 
 class ValidateCutting extends CuttingEvent {
@@ -78,10 +79,12 @@ class ValidateCutting extends CuttingEvent {
     this.color,
     this.poQuantity,
     this.quantity,
+    {this.excludingId},
   );
   final String poNo;
   final String article;
   final String color;
   final int poQuantity;
   final int quantity;
+  final String? excludingId;
 }

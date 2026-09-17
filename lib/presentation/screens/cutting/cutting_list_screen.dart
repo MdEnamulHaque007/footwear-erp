@@ -203,19 +203,20 @@ class _CuttingListScreenState extends State<CuttingListScreen> {
           children: [
             Expanded(
               child: Scrollbar(
-          controller: horizontalScroll,
-          thumbVisibility: true,
-          notificationPredicate: (notification) => notification.depth == 1,
-          child: SingleChildScrollView(
-            controller: verticalScroll,
-            padding: const EdgeInsets.all(12),
-            child: Scrollbar(
-              controller: verticalScroll,
-              thumbVisibility: true,
-              child: SingleChildScrollView(
-                controller: horizontalScroll,
-                scrollDirection: Axis.horizontal,
-                child: DataTable(
+                controller: verticalScroll,
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  controller: verticalScroll,
+                  padding: const EdgeInsets.all(12),
+                  child: Scrollbar(
+                    controller: horizontalScroll,
+                    thumbVisibility: true,
+                    notificationPredicate: (notification) =>
+                        notification.depth == 1,
+                    child: SingleChildScrollView(
+                      controller: horizontalScroll,
+                      scrollDirection: Axis.horizontal,
+                      child: DataTable(
                     columnSpacing: 14,
                     dataRowMinHeight: 40,
                     dataRowMaxHeight: 50,
@@ -290,10 +291,10 @@ class _CuttingListScreenState extends State<CuttingListScreen> {
                           ),
                         )
                         .toList(),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ),
               ),
             ),
             const SizedBox(height: 4),

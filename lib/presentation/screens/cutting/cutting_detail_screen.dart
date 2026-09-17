@@ -82,7 +82,10 @@ class _CuttingDetailScreenState extends State<CuttingDetailScreen> {
           0,
           (sum, entry) => sum + entry.cuttingQuantity,
         );
-        final available = data.item.poQuantity - total;
+        final remaining = (data.item.poQuantity - total)
+            .clamp(0, data.item.poQuantity)
+            .toInt();
+        final excess = (total - data.item.poQuantity).clamp(0, total).toInt();
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -106,11 +109,8 @@ class _CuttingDetailScreenState extends State<CuttingDetailScreen> {
                 _row('PO Quantity', '${data.item.poQuantity}'),
                 _row('This Cutting Qty', '${data.item.cuttingQuantity}'),
                 _row('Total Cutting Qty', '$total'),
-                _row('Available Quantity', '$available'),
-                _row(
-                  'Remaining After This',
-                  '${available - data.item.cuttingQuantity}',
-                ),
+                _row('Remaining PO Quantity', '$remaining'),
+                _row('Excess Cutting', '$excess'),
               ]),
               const SizedBox(height: 16),
               const Text(

@@ -10,9 +10,13 @@ class QuantityValidator {
     if (!isValidQuantity(cuttingQuantity)) {
       return 'Quantity must be greater than 0';
     }
-    if (!isWithinLimit(cuttingQuantity, availablePOQuantity)) {
-      return 'Cutting quantity ($cuttingQuantity) exceeds available PO quantity ($availablePOQuantity)';
-    }
+    // Cutting is the only soft-limit stage. It may exceed the remaining PO
+    // balance; callers use [cuttingExcess] to report the over-cut quantity.
     return null;
+  }
+
+  static int cuttingExcess(int cuttingQuantity, int availablePOQuantity) {
+    final excess = cuttingQuantity - availablePOQuantity;
+    return excess > 0 ? excess : 0;
   }
 }

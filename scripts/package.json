@@ -1,0 +1,11 @@
+{
+  "name": "footwear-erp-demo-seeder",
+  "private": true,
+  "description": "Development-only Firestore demo data seeder for Footwear ERP",
+  "scripts": {
+    "seed:demo": "node seed_demo_data.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
+  }
+}

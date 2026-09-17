@@ -50,6 +50,7 @@ import '../screens/settings/brand_list_screen.dart';
 import '../screens/settings/article_list_screen.dart';
 import '../screens/settings/color_list_screen.dart';
 import '../screens/admin/admin_dashboard_screen.dart';
+import '../screens/admin/demo_data_screen.dart';
 import '../screens/user_management/user_list_screen.dart';
 import '../screens/user_management/user_form_screen.dart';
 import '../screens/user_management/user_detail_screen.dart';
@@ -91,483 +92,91 @@ import 'home_navigation_shell.dart';
 
 class AppRoutes {
   static final router = GoRouter(
-    // `/` is the dashboard, so a debug build with `DevConfig.bypassAuth` opens
-    // it directly — `RouteGuard.redirect` allows every route in that mode.
     initialLocation: RouteConstants.dashboard,
-    // Kept so the guard re-evaluates on every auth change (including the dev
-    // session emitted by `AuthBloc`).
     refreshListenable: GoRouterRefreshStream(GetIt.I<AuthBloc>().stream),
     redirect: (context, state) => RouteGuard.redirect(state),
     routes: [
       GoRoute(path: '/dashboard', redirect: (_, _) => RouteConstants.dashboard),
       ShellRoute(
-        builder: (_, state, child) =>
-            HomeNavigationShell(location: state.uri.path, child: child),
+        builder: (_, state, child) => HomeNavigationShell(location: state.uri.path, child: child),
         routes: [
-          GoRoute(
-            path: RouteConstants.dashboard,
-            builder: (_, _) => const DashboardScreen(),
-          ),
-          GoRoute(
-            path: RouteConstants.timelapseDashboard,
-            name: 'timelapse-dashboard',
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<TimelapseBloc>(),
-              child: const TimelapseDashboardScreen(),
-            ),
-          ),
-          GoRoute(
-            path: RouteConstants.login,
-            builder: (_, _) => const LoginScreen(),
-          ),
-          GoRoute(
-            path: RouteConstants.register,
-            builder: (_, _) => const RegisterScreen(),
-          ),
-          GoRoute(
-            path: RouteConstants.resetPassword,
-            builder: (_, _) => const ResetPasswordScreen(),
-          ),
-          GoRoute(
-            path: RouteConstants.adminBootstrap,
-            builder: (_, _) => const AdminBootstrapScreen(),
-          ),
-          GoRoute(
-            path: '/master-lc',
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<MasterLCBloc>(),
-              child: const MasterLCListScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/purchase-orders',
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<POBloc>(),
-              child: const POListScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/master-lc/new',
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<MasterLCBloc>(),
-              child: const MasterLCFormScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/master-lc/edit/:id',
-            builder: (_, state) => BlocProvider(
-              create: (_) => GetIt.I<MasterLCBloc>(),
-              child: MasterLCFormScreen(
-                id: state.pathParameters['id'],
-                entity: state.extra as MasterLCEntity?,
-              ),
-            ),
-          ),
-          GoRoute(
-            path: '/master-lc/detail/:id',
-            builder: (_, state) => MultiBlocProvider(
-              providers: [
-                BlocProvider(create: (_) => GetIt.I<MasterLCBloc>()),
-                BlocProvider(create: (_) => GetIt.I<POBloc>()),
-              ],
-              child: MasterLCDetailScreen(
-                id: state.pathParameters['id']!,
-                initialItem: state.extra as MasterLCEntity?,
-              ),
-            ),
-          ),
-          GoRoute(
-            path: '/master-lc/:tag',
-            redirect: (_, state) =>
-                '/master-lc/detail/${state.pathParameters['tag']}',
-          ),
-          GoRoute(
-            path: '/purchase-orders/new',
-            builder: (_, state) => MultiBlocProvider(
-              providers: [
-                BlocProvider(create: (_) => GetIt.I<POBloc>()),
-                BlocProvider(create: (_) => GetIt.I<MasterLCBloc>()),
-              ],
-              child: POFormScreen(
-                initialTagNo: state.uri.queryParameters['tag'],
-              ),
-            ),
-          ),
-          GoRoute(
-            path: '/purchase-orders/edit/:id',
-            builder: (_, state) => MultiBlocProvider(
-              providers: [
-                BlocProvider(create: (_) => GetIt.I<POBloc>()),
-                BlocProvider(create: (_) => GetIt.I<MasterLCBloc>()),
-              ],
-              child: POFormScreen(initialItem: state.extra as POEntity?),
-            ),
-          ),
-          GoRoute(
-            path: '/purchase-orders/detail/:id',
-            builder: (_, state) => BlocProvider(
-              create: (_) => GetIt.I<POBloc>(),
-              child: PODetailScreen(
-                id: state.pathParameters['id']!,
-                initialItem: state.extra as POEntity?,
-              ),
-            ),
-          ),
-          GoRoute(
-            path: '/cutting',
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<CuttingBloc>(),
-              child: const CuttingListScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/cutting/new',
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<CuttingBloc>(),
-              child: const CuttingFormScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/cutting/edit/:id',
-            builder: (_, state) => BlocProvider(
-              create: (_) => GetIt.I<CuttingBloc>(),
-              child: CuttingFormScreen(
-                initialItem: state.extra as CuttingEntity?,
-              ),
-            ),
-          ),
-          GoRoute(
-            path: '/cutting/detail/:id',
-            builder: (_, state) => CuttingDetailScreen(
-              id: state.pathParameters['id']!,
-              initialItem: state.extra as CuttingEntity?,
-            ),
-          ),
-          GoRoute(
-            path: '/sewing',
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<SewingBloc>(),
-              child: const SewingListScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/sewing/new',
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<SewingBloc>(),
-              child: const SewingFormScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/sewing/edit/:id',
-            builder: (_, state) => BlocProvider(
-              create: (_) => GetIt.I<SewingBloc>(),
-              child: SewingFormScreen(
-                initialItem: state.extra as SewingEntity?,
-              ),
-            ),
-          ),
-          GoRoute(
-            path: '/sewing/detail/:id',
-            builder: (_, state) => SewingDetailScreen(
-              id: state.pathParameters['id']!,
-              initialItem: state.extra as SewingEntity?,
-            ),
-          ),
-          GoRoute(
-            path: '/production',
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<ProductionBloc>(),
-              child: const ProductionListScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/production/new',
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<ProductionBloc>(),
-              child: const ProductionFormScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/production/edit/:id',
-            builder: (_, state) => BlocProvider(
-              create: (_) => GetIt.I<ProductionBloc>(),
-              child: ProductionFormScreen(
-                initialItem: state.extra as ProductionEntity?,
-              ),
-            ),
-          ),
-          GoRoute(
-            path: '/production/detail/:id',
-            builder: (_, state) => ProductionDetailScreen(
-              id: state.pathParameters['id']!,
-              initialItem: state.extra as ProductionEntity?,
-            ),
-          ),
-          GoRoute(
-            path: '/issue',
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<IssueBloc>(),
-              child: const IssueListScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/issue/new',
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<IssueBloc>(),
-              child: const IssueFormScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/issue/edit/:id',
-            builder: (_, state) => BlocProvider(
-              create: (_) => GetIt.I<IssueBloc>(),
-              child: IssueFormScreen(initialItem: state.extra as IssueEntity?),
-            ),
-          ),
-          GoRoute(
-            path: '/issue/detail/:id',
-            builder: (_, state) => IssueDetailScreen(
-              id: state.pathParameters['id']!,
-              initialItem: state.extra as IssueEntity?,
-            ),
-          ),
-          GoRoute(
-            path: RouteConstants.export,
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<ExportBloc>(),
-              child: const ExportListScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/export/new',
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<ExportBloc>(),
-              child: const ExportFormScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/export/edit/:id',
-            builder: (_, state) => BlocProvider(
-              create: (_) => GetIt.I<ExportBloc>(),
-              child: ExportFormScreen(
-                initialItem: state.extra as ExportEntity?,
-              ),
-            ),
-          ),
-          GoRoute(
-            path: '/export/detail/:id',
-            builder: (_, state) => ExportDetailScreen(
-              id: state.pathParameters['id']!,
-              initialItem: state.extra as ExportEntity?,
-            ),
-          ),
-          GoRoute(
-            path: RouteConstants.reports,
-            builder: (_, _) => const ReportsScreen(),
-          ),
-          GoRoute(
-            path: RouteConstants.productionReport,
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<ProductionReportBloc>(),
-              child: const ProductionReportScreen(),
-            ),
-          ),
-          GoRoute(
-            path: RouteConstants.finishedGoodsReport,
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<FinishedGoodsReportBloc>(),
-              child: const FinishedGoodsReportScreen(),
-            ),
-          ),
-          GoRoute(
-            path: RouteConstants.warehouseReport,
-            name: 'warehouse-report',
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<WarehouseReportBloc>(),
-              child: const WarehouseReportScreen(),
-            ),
-          ),
-          GoRoute(
-            path: RouteConstants.auditLog,
-            builder: (_, _) => const AuditLogScreen(),
-          ),
-          GoRoute(
-            path: RouteConstants.settings,
-            builder: (_, _) => BlocProvider.value(
-              value: GetIt.I<SettingsBloc>(),
-              child: const SettingsScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/settings/appearance',
-            builder: (_, _) => BlocProvider.value(
-              value: GetIt.I<SettingsBloc>(),
-              child: const AppearanceScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/settings/notifications',
-            builder: (_, _) => BlocProvider.value(
-              value: GetIt.I<SettingsBloc>(),
-              child: const NotificationsScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/settings/business',
-            builder: (_, _) => BlocProvider.value(
-              value: GetIt.I<SettingsBloc>(),
-              child: const BusinessSettingsScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/settings/factory',
-            builder: (_, _) => BlocProvider.value(
-              value: GetIt.I<SettingsBloc>(),
-              child: const FactoryListScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/settings/project',
-            builder: (_, _) => BlocProvider.value(
-              value: GetIt.I<SettingsBloc>(),
-              child: const ProjectListScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/settings/brand',
-            builder: (_, _) => BlocProvider.value(
-              value: GetIt.I<SettingsBloc>(),
-              child: const BrandListScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/settings/article',
-            builder: (_, _) => BlocProvider.value(
-              value: GetIt.I<SettingsBloc>(),
-              child: const ArticleListScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/settings/color',
-            builder: (_, _) => BlocProvider.value(
-              value: GetIt.I<SettingsBloc>(),
-              child: const ColorListScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/settings/security',
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<SecurityBloc>(),
-              child: const SecuritySettingsScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/settings/data',
-            builder: (_, _) => BlocProvider.value(
-              value: GetIt.I<SettingsBloc>(),
-              child: const DataManagementScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/settings/about',
-            builder: (_, _) => const AboutScreen(),
-          ),
-          GoRoute(
-            path: RouteConstants.profile,
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<ProfileBloc>(),
-              child: const ProfileScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/settings/profile',
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<ProfileBloc>(),
-              child: const ProfileScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/unauthorized',
-            builder: (_, _) => const UnauthorizedScreen(),
-          ),
-          GoRoute(
-            path: '/admin',
-            builder: (_, _) => const AdminDashboardScreen(),
-          ),
-          GoRoute(
-            path: RouteConstants.adminUsers,
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<UserManagementBloc>()..add(LoadUsers()),
-              child: const UserListScreen(),
-            ),
-          ),
-          GoRoute(
-            path: RouteConstants.adminUsersNew,
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<UserManagementBloc>(),
-              child: const UserFormScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '${RouteConstants.adminUsersEdit}/:id',
-            builder: (_, state) => BlocProvider(
-              create: (_) => GetIt.I<UserManagementBloc>(),
-              child: UserFormScreen(
-                uid: state.pathParameters['id'],
-                initialUser: state.extra as UserEntity?,
-              ),
-            ),
-          ),
-          GoRoute(
-            path: '${RouteConstants.adminUsersDetail}/:id',
-            builder: (_, state) => BlocProvider(
-              create: (_) => GetIt.I<UserManagementBloc>(),
-              child: UserDetailScreen(
-                uid: state.pathParameters['id'] ?? '',
-                initialUser: state.extra as UserEntity?,
-              ),
-            ),
-          ),
-          GoRoute(
-            path: '/admin/roles',
-            builder: (_, _) => BlocProvider(
-              create: (_) => GetIt.I<RoleManagementBloc>()..add(LoadRoles()),
-              child: const RoleListScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/admin/roles/create',
-            builder: (_, _) => BlocProvider.value(
-              value: GetIt.I<RoleManagementBloc>(),
-              child: const RoleCreateScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/admin/permissions',
-            builder: (_, _) => const PermissionMatrixScreen(),
-          ),
+          GoRoute(path: RouteConstants.dashboard, builder: (_, _) => const DashboardScreen()),
+          GoRoute(path: RouteConstants.timelapseDashboard, name: 'timelapse-dashboard', builder: (_, _) => BlocProvider(create: (_) => GetIt.I<TimelapseBloc>(), child: const TimelapseDashboardScreen())),
+          GoRoute(path: RouteConstants.login, builder: (_, _) => const LoginScreen()),
+          GoRoute(path: RouteConstants.register, builder: (_, _) => const RegisterScreen()),
+          GoRoute(path: RouteConstants.resetPassword, builder: (_, _) => const ResetPasswordScreen()),
+          GoRoute(path: RouteConstants.adminBootstrap, builder: (_, _) => const AdminBootstrapScreen()),
+          GoRoute(path: '/master-lc', builder: (_, _) => BlocProvider(create: (_) => GetIt.I<MasterLCBloc>(), child: const MasterLCListScreen())),
+          GoRoute(path: '/purchase-orders', builder: (_, _) => BlocProvider(create: (_) => GetIt.I<POBloc>(), child: const POListScreen())),
+          GoRoute(path: '/master-lc/new', builder: (_, _) => BlocProvider(create: (_) => GetIt.I<MasterLCBloc>(), child: const MasterLCFormScreen())),
+          GoRoute(path: '/master-lc/edit/:id', builder: (_, state) => BlocProvider(create: (_) => GetIt.I<MasterLCBloc>(), child: MasterLCFormScreen(id: state.pathParameters['id'], entity: state.extra as MasterLCEntity?))),
+          GoRoute(path: '/master-lc/detail/:id', builder: (_, state) => MultiBlocProvider(providers: [BlocProvider(create: (_) => GetIt.I<MasterLCBloc>()), BlocProvider(create: (_) => GetIt.I<POBloc>())], child: MasterLCDetailScreen(id: state.pathParameters['id']!, initialItem: state.extra as MasterLCEntity?))),
+          GoRoute(path: '/master-lc/:tag', redirect: (_, state) => '/master-lc/detail/${state.pathParameters['tag']}'),
+          GoRoute(path: '/purchase-orders/new', builder: (_, state) => MultiBlocProvider(providers: [BlocProvider(create: (_) => GetIt.I<POBloc>()), BlocProvider(create: (_) => GetIt.I<MasterLCBloc>())], child: POFormScreen(initialTagNo: state.uri.queryParameters['tag']))),
+          GoRoute(path: '/purchase-orders/edit/:id', builder: (_, state) => MultiBlocProvider(providers: [BlocProvider(create: (_) => GetIt.I<POBloc>()), BlocProvider(create: (_) => GetIt.I<MasterLCBloc>())], child: POFormScreen(initialItem: state.extra as POEntity?))),
+          GoRoute(path: '/purchase-orders/detail/:id', builder: (_, state) => BlocProvider(create: (_) => GetIt.I<POBloc>(), child: PODetailScreen(id: state.pathParameters['id']!, initialItem: state.extra as POEntity?))),
+          GoRoute(path: '/cutting', builder: (_, _) => BlocProvider(create: (_) => GetIt.I<CuttingBloc>(), child: const CuttingListScreen())),
+          GoRoute(path: '/cutting/new', builder: (_, _) => BlocProvider(create: (_) => GetIt.I<CuttingBloc>(), child: const CuttingFormScreen())),
+          GoRoute(path: '/cutting/edit/:id', builder: (_, state) => BlocProvider(create: (_) => GetIt.I<CuttingBloc>(), child: CuttingFormScreen(initialItem: state.extra as CuttingEntity?))),
+          GoRoute(path: '/cutting/detail/:id', builder: (_, state) => CuttingDetailScreen(id: state.pathParameters['id']!, initialItem: state.extra as CuttingEntity?)),
+          GoRoute(path: '/sewing', builder: (_, _) => BlocProvider(create: (_) => GetIt.I<SewingBloc>(), child: const SewingListScreen())),
+          GoRoute(path: '/sewing/new', builder: (_, _) => BlocProvider(create: (_) => GetIt.I<SewingBloc>(), child: const SewingFormScreen())),
+          GoRoute(path: '/sewing/edit/:id', builder: (_, state) => BlocProvider(create: (_) => GetIt.I<SewingBloc>(), child: SewingFormScreen(initialItem: state.extra as SewingEntity?))),
+          GoRoute(path: '/sewing/detail/:id', builder: (_, state) => SewingDetailScreen(id: state.pathParameters['id']!, initialItem: state.extra as SewingEntity?)),
+          GoRoute(path: '/production', builder: (_, _) => BlocProvider(create: (_) => GetIt.I<ProductionBloc>(), child: const ProductionListScreen())),
+          GoRoute(path: '/production/new', builder: (_, _) => BlocProvider(create: (_) => GetIt.I<ProductionBloc>(), child: const ProductionFormScreen())),
+          GoRoute(path: '/production/edit/:id', builder: (_, state) => BlocProvider(create: (_) => GetIt.I<ProductionBloc>(), child: ProductionFormScreen(initialItem: state.extra as ProductionEntity?))),
+          GoRoute(path: '/production/detail/:id', builder: (_, state) => ProductionDetailScreen(id: state.pathParameters['id']!, initialItem: state.extra as ProductionEntity?)),
+          GoRoute(path: '/issue', builder: (_, _) => BlocProvider(create: (_) => GetIt.I<IssueBloc>(), child: const IssueListScreen())),
+          GoRoute(path: '/issue/new', builder: (_, _) => BlocProvider(create: (_) => GetIt.I<IssueBloc>(), child: const IssueFormScreen())),
+          GoRoute(path: '/issue/edit/:id', builder: (_, state) => BlocProvider(create: (_) => GetIt.I<IssueBloc>(), child: IssueFormScreen(initialItem: state.extra as IssueEntity?))),
+          GoRoute(path: '/issue/detail/:id', builder: (_, state) => IssueDetailScreen(id: state.pathParameters['id']!, initialItem: state.extra as IssueEntity?)),
+          GoRoute(path: RouteConstants.export, builder: (_, _) => BlocProvider(create: (_) => GetIt.I<ExportBloc>(), child: const ExportListScreen())),
+          GoRoute(path: '/export/new', builder: (_, _) => BlocProvider(create: (_) => GetIt.I<ExportBloc>(), child: const ExportFormScreen())),
+          GoRoute(path: '/export/edit/:id', builder: (_, state) => BlocProvider(create: (_) => GetIt.I<ExportBloc>(), child: ExportFormScreen(initialItem: state.extra as ExportEntity?))),
+          GoRoute(path: '/export/detail/:id', builder: (_, state) => ExportDetailScreen(id: state.pathParameters['id']!, initialItem: state.extra as ExportEntity?)),
+          GoRoute(path: RouteConstants.reports, builder: (_, _) => const ReportsScreen()),
+          GoRoute(path: RouteConstants.productionReport, builder: (_, _) => BlocProvider(create: (_) => GetIt.I<ProductionReportBloc>(), child: const ProductionReportScreen())),
+          GoRoute(path: RouteConstants.finishedGoodsReport, builder: (_, _) => BlocProvider(create: (_) => GetIt.I<FinishedGoodsReportBloc>(), child: const FinishedGoodsReportScreen())),
+          GoRoute(path: RouteConstants.warehouseReport, name: 'warehouse-report', builder: (_, _) => BlocProvider(create: (_) => GetIt.I<WarehouseReportBloc>(), child: const WarehouseReportScreen())),
+          GoRoute(path: RouteConstants.auditLog, builder: (_, _) => const AuditLogScreen()),
+          GoRoute(path: RouteConstants.settings, builder: (_, _) => BlocProvider.value(value: GetIt.I<SettingsBloc>(), child: const SettingsScreen())),
+          GoRoute(path: '/settings/appearance', builder: (_, _) => BlocProvider.value(value: GetIt.I<SettingsBloc>(), child: const AppearanceScreen())),
+          GoRoute(path: '/settings/notifications', builder: (_, _) => BlocProvider.value(value: GetIt.I<SettingsBloc>(), child: const NotificationsScreen())),
+          GoRoute(path: '/settings/business', builder: (_, _) => BlocProvider.value(value: GetIt.I<SettingsBloc>(), child: const BusinessSettingsScreen())),
+          GoRoute(path: '/settings/factory', builder: (_, _) => BlocProvider.value(value: GetIt.I<SettingsBloc>(), child: const FactoryListScreen())),
+          GoRoute(path: '/settings/project', builder: (_, _) => BlocProvider.value(value: GetIt.I<SettingsBloc>(), child: const ProjectListScreen())),
+          GoRoute(path: '/settings/brand', builder: (_, _) => BlocProvider.value(value: GetIt.I<SettingsBloc>(), child: const BrandListScreen())),
+          GoRoute(path: '/settings/article', builder: (_, _) => BlocProvider.value(value: GetIt.I<SettingsBloc>(), child: const ArticleListScreen())),
+          GoRoute(path: '/settings/color', builder: (_, _) => BlocProvider.value(value: GetIt.I<SettingsBloc>(), child: const ColorListScreen())),
+          GoRoute(path: '/settings/security', builder: (_, _) => BlocProvider(create: (_) => GetIt.I<SecurityBloc>(), child: const SecuritySettingsScreen())),
+          GoRoute(path: '/settings/data', builder: (_, _) => BlocProvider.value(value: GetIt.I<SettingsBloc>(), child: const DataManagementScreen())),
+          GoRoute(path: '/settings/about', builder: (_, _) => const AboutScreen()),
+          GoRoute(path: RouteConstants.profile, builder: (_, _) => BlocProvider(create: (_) => GetIt.I<ProfileBloc>(), child: const ProfileScreen())),
+          GoRoute(path: '/settings/profile', builder: (_, _) => BlocProvider(create: (_) => GetIt.I<ProfileBloc>(), child: const ProfileScreen())),
+          GoRoute(path: '/unauthorized', builder: (_, _) => const UnauthorizedScreen()),
+          GoRoute(path: RouteConstants.admin, builder: (_, _) => const AdminDashboardScreen()),
+          GoRoute(path: RouteConstants.adminDemoData, builder: (_, _) => const DemoDataScreen()),
+          GoRoute(path: RouteConstants.adminUsers, builder: (_, _) => BlocProvider(create: (_) => GetIt.I<UserManagementBloc>()..add(LoadUsers()), child: const UserListScreen())),
+          GoRoute(path: RouteConstants.adminUsersNew, builder: (_, _) => BlocProvider(create: (_) => GetIt.I<UserManagementBloc>(), child: const UserFormScreen())),
+          GoRoute(path: '${RouteConstants.adminUsersEdit}/:id', builder: (_, state) => BlocProvider(create: (_) => GetIt.I<UserManagementBloc>(), child: UserFormScreen(uid: state.pathParameters['id'], initialUser: state.extra as UserEntity?))),
+          GoRoute(path: '${RouteConstants.adminUsersDetail}/:id', builder: (_, state) => BlocProvider(create: (_) => GetIt.I<UserManagementBloc>(), child: UserDetailScreen(uid: state.pathParameters['id'] ?? '', initialUser: state.extra as UserEntity?))),
+          GoRoute(path: '/admin/roles', builder: (_, _) => BlocProvider(create: (_) => GetIt.I<RoleManagementBloc>()..add(LoadRoles()), child: const RoleListScreen())),
+          GoRoute(path: '/admin/roles/create', builder: (_, _) => BlocProvider.value(value: GetIt.I<RoleManagementBloc>(), child: const RoleCreateScreen())),
+          GoRoute(path: '/admin/permissions', builder: (_, _) => const PermissionMatrixScreen()),
         ],
       ),
     ],
-    errorBuilder: (_, state) => HomeNavigationShell(
-      location: state.uri.path,
-      child: const Scaffold(
-        body: Center(child: Text('Page not found. Use Home to return.')),
-      ),
-    ),
+    errorBuilder: (_, state) => HomeNavigationShell(location: state.uri.path, child: const Scaffold(body: Center(child: Text('Page not found. Use Home to return.')))),
   );
 }
 
-/// Bridges the [AuthBloc] state stream to a [Listenable] so GoRouter
-/// re-evaluates [RouteGuard.redirect] whenever authentication changes.
 class GoRouterRefreshStream extends ChangeNotifier {
   GoRouterRefreshStream(Stream<dynamic> stream) {
     notifyListeners();
     _subscription = stream.asBroadcastStream().listen((_) => notifyListeners());
   }
-
   late final StreamSubscription<dynamic> _subscription;
-
   @override
   void dispose() {
     _subscription.cancel();

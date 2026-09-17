@@ -1,6 +1,15 @@
 import 'package:dartz/dartz.dart';
 import '../../repositories/i_cutting_repository.dart';
 
+/// Validates a Cutting quantity for a PO line.
+///
+/// Business rule: Cutting **may exceed** the PO line quantity. Excess is
+/// intentional (e.g. extra cut after order completion) and must remain
+/// recordable. Only non-positive quantities are rejected.
+///
+/// Returns [Right] with the remaining available amount
+/// (`poQuantity - cumulative`). A **negative** value means the line is
+/// already over-cut (or will be after this entry) and is still valid.
 class ValidateCuttingQuantityUseCase {
   ValidateCuttingQuantityUseCase(this._repository);
   final ICuttingRepository _repository;
@@ -23,11 +32,7 @@ class ValidateCuttingQuantityUseCase {
       excludingId: excludingId,
     );
     final available = poQuantity - cumulative;
-    if (candidateQuantity > available) {
-      return Left(
-        'Cutting quantity exceeds available quantity (available: $available)',
-      );
-    }
+    // Soft-limit: over-PO cutting is allowed; [available] may be negative.
     return Right(available);
   }
 }

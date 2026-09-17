@@ -289,11 +289,12 @@ class CuttingRepository implements ICuttingRepository {
   Future<Either<String, void>> updateWithTransaction(CuttingEntity item) =>
       _writeWithTransaction(item, isUpdate: true);
 
-  /// Validation + atomic write.
+  /// Atomic create/update for a Cutting entry.
   ///
-  /// The PO line quantity is re-read **inside** the transaction along with the
-  /// sibling Cutting entries, so two devices saving the same PO line
-  /// concurrently cannot both consume the same PO balance.
+  /// Business rule: Cutting **may exceed** the PO line quantity (soft-limit).
+  /// Excess cuts are allowed so extra production after order completion can be
+  /// recorded. Only non-positive quantities are rejected. Sibling reads still
+  /// self-exclude the document being edited for consistent cumulative totals.
   Future<Either<String, void>> _writeWithTransaction(
     CuttingEntity item, {
     required bool isUpdate,
@@ -304,49 +305,6 @@ class CuttingRepository implements ICuttingRepository {
     try {
       final data = CuttingModel.fromEntity(item).toFirestore();
       await _db.runTransaction<void>((transaction) async {
-        // 1. Resolve the PO for the line quantity (query outside the
-        // transaction; the document itself is re-read transactionally).
-        final poQuery = await _poCollection
-            .where('poNo', isEqualTo: item.poNo)
-            .limit(1)
-            .get();
-        var poQuantity = 0;
-        if (poQuery.docs.isNotEmpty) {
-          final poRef = poQuery.docs.first.reference;
-          final poSnapshot = await transaction.get(poRef);
-          final po = poSnapshot.data() ?? const <String, dynamic>{};
-          poQuantity = _lineQuantity(po);
-        }
-
-        // 2. Sibling Cutting entries for the same PO line (self-excluded).
-        final siblings = await _collection
-            .where('poNo', isEqualTo: item.poNo)
-            .limit(1000)
-            .get();
-        final normalizedArticle = _normalize(item.article);
-        final normalizedColor = _normalize(item.color);
-        var used = 0;
-        for (final doc in siblings.docs) {
-          if (doc.id == ref.id) continue;
-          final data = doc.data();
-          if (_normalize(data['article']) != normalizedArticle ||
-              _normalize(data['color']) != normalizedColor) {
-            continue;
-          }
-          used += _number(data['cuttingQuantity'] ?? data['quantity']);
-        }
-
-        // 3. Validate against the persisted PO line quantity. Legacy records
-        // whose PO cannot be resolved are written without the check.
-        if (poQuantity > 0) {
-          final available = poQuantity - used;
-          if (item.cuttingQuantity > available) {
-            throw _CuttingValidationException(
-              'Cutting quantity exceeds available quantity '
-              '(available: $available)',
-            );
-          }
-        }
         if (item.cuttingQuantity <= 0) {
           throw const _CuttingValidationException(
             'Quantity must be greater than zero',

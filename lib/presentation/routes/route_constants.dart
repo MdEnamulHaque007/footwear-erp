@@ -13,6 +13,8 @@ class RouteConstants {
   static const auditLog = '/audit-log';
   static const settings = '/settings';
   static const profile = '/profile';
+  static const admin = '/admin';
+  static const adminDemoData = '/admin/demo-data';
   static const adminUsers = '/admin/users';
   static const adminUsersNew = '/admin/users/new';
   static const adminUsersEdit = '/admin/users/edit';

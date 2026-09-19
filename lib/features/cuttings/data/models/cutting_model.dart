@@ -37,7 +37,28 @@ class Cutting with _$Cutting {
   }) = _Cutting;
 
   factory Cutting.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data() ?? <String, dynamic>{};
+    final data = Map<String, dynamic>.from(
+      doc.data() ?? <String, dynamic>{},
+    );
+
+    for (final key in ['cuttingDate', 'createdAt', 'updatedAt']) {
+      final value = data[key];
+      if (value is Timestamp) {
+        data[key] = value.toDate();
+      }
+    }
+
+    final cuttingDate =
+        data['cuttingDate'] is DateTime ? data['cuttingDate'] as DateTime : DateTime.now();
+    final createdAt =
+        data['createdAt'] is DateTime ? data['createdAt'] as DateTime : cuttingDate;
+    final updatedAt =
+        data['updatedAt'] is DateTime ? data['updatedAt'] as DateTime : createdAt;
+
+    data['cuttingDate'] = cuttingDate;
+    data['createdAt'] = createdAt;
+    data['updatedAt'] = updatedAt;
+
     return Cutting.fromJson(data);
   }
 
@@ -48,6 +69,7 @@ class Cutting with _$Cutting {
         ..._$CuttingToJson(this),
         'cuttingDate': Timestamp.fromDate(cuttingDate),
         'factoryName': factoryName.trim(),
+        'createdAt': Timestamp.fromDate(createdAt),
         'updatedAt': Timestamp.now(),
       };
 

@@ -11,7 +11,7 @@ class CreateIssueUseCase {
   Future<Either<String, void>> call(IssueEntity item) async {
     if (item.poNo.isNotEmpty) {
       final error = await _validate(
-        poTagNo: item.poTagNo,
+        poTagNo: item.tagNo,
         issueDate: item.issueDate,
         candidateQuantity: item.quantity,
         poNo: item.poNo,
@@ -22,7 +22,7 @@ class CreateIssueUseCase {
       return _repository.createWithTransaction(item);
     }
     final error = await _validate(
-      poTagNo: item.poTagNo,
+      poTagNo: item.tagNo,
       issueDate: item.issueDate,
       candidateQuantity: item.quantity,
     );

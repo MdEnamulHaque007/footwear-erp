@@ -193,7 +193,7 @@ class CuttingRepository implements ICuttingRepository {
       return CuttingModel.fromEntity(
         item.copyWith(
           tagNo: tagNo,
-          poTagNo: item.tagNo.isEmpty ? tagNo : item.tagNo,
+          // tagNo is the single source of truth; poTagNo is derived by the entity.
           company: item.company.isEmpty ? po.company : item.company,
           project: item.project.isEmpty ? po.project : item.project,
           poQuantity: poQuantity,

@@ -32,7 +32,7 @@ class ExportModel extends ExportEntity {
     sl: e.sl,
     voucherNo: e.voucherNo,
     exportDate: e.exportDate,
-    poTagNo: e.poTagNo,
+    poTagNo: e.tagNo,
     quantity: e.quantity,
     entryPerson: e.entryPerson,
     poNo: e.poNo,
@@ -57,7 +57,8 @@ class ExportModel extends ExportEntity {
   /// the legacy `poTagNo` + `quantity` fields.
   factory ExportModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> s) {
     final d = s.data() ?? {};
-    final tagNo = _string(d['tagNo'] ?? d['poTagNo']);
+    final primaryTagNo = _string(d['tagNo']);
+    final tagNo = primaryTagNo.isNotEmpty ? primaryTagNo : _string(d['poTagNo']);
     final quantity = _int(d['quantity'] ?? d['exportQuantity']);
     return ExportModel(
       id: s.id,
@@ -110,7 +111,7 @@ class ExportModel extends ExportEntity {
     sl: sl,
     voucherNo: voucherNo,
     exportDate: exportDate,
-    poTagNo: poTagNo,
+    poTagNo: tagNo,
     quantity: quantity,
     entryPerson: entryPerson,
     poNo: poNo,

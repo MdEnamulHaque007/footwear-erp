@@ -7,6 +7,7 @@ import '../../domain/entities/cutting_entity.dart';
 import '../../domain/repositories/i_cutting_repository.dart';
 import '../models/cutting/cutting_model.dart';
 import '../models/purchase_order/po_model.dart';
+import '../models/master_lc/master_lc_model.dart';
 
 
 class CuttingRepository implements ICuttingRepository {
@@ -17,6 +18,8 @@ class CuttingRepository implements ICuttingRepository {
       _db.collection(AppConstants.collectionCutting);
   CollectionReference<Map<String, dynamic>> get _poCollection =>
       _db.collection(AppConstants.collectionPO);
+  CollectionReference<Map<String, dynamic>> get _masterLcCollection =>
+      _db.collection(AppConstants.collectionMasterLC);
 
   /// Distinct Article + Color pairs recorded in the PO line items of [poNo].
   @override
@@ -168,11 +171,16 @@ class CuttingRepository implements ICuttingRepository {
     return items.map((item) {
       // Continue enrichment even when tag/quantity already exist because
       // legacy records may still be missing company/project.
-      final po = poByNo[item.poNo];
-      if (po == null) {
-        debugPrint('Cutting PO not found: ${item.poNo}');
+      final basePo = poByNo[item.poNo];
+      if (basePo == null) {
+        debugPrint('Cutting PO not found: \${item.poNo}');
         return item;
       }
+
+      // Some legacy/imported PO documents contain the correct PO number/tag
+      // but have blank company/project fields. Master LC is the authoritative
+      // source for those two fields, keyed by the same Tag No.
+      final po = await _enrichPOHeaderFromMasterLc(basePo);
       final matchingLines = po.effectiveLineItems.where((line) {
         return _normalize(line.article) == _normalize(item.article) &&
             _normalize(line.color) == _normalize(item.color);
@@ -192,6 +200,33 @@ class CuttingRepository implements ICuttingRepository {
         ),
       );
     }).toList();
+  }
+
+  Future<POModel> _enrichPOHeaderFromMasterLc(POModel po) async {
+    if (po.company.isNotEmpty && po.project.isNotEmpty) return po;
+    if (po.tagNo.isEmpty) return po;
+
+    try {
+      final snapshot = await _masterLcCollection
+          .where('tagNo', isEqualTo: po.tagNo)
+          .limit(1)
+          .get();
+      if (snapshot.docs.isEmpty) return po;
+
+      final master = MasterLCModel.fromSnapshot(snapshot.docs.first);
+      return POModel.fromEntity(
+        po.copyWith(
+          company: po.company.isEmpty ? master.company : po.company,
+          project: po.project.isEmpty ? master.project : po.project,
+        ),
+      );
+    } on FirebaseException catch (e) {
+      debugPrint('Master LC lookup failed for PO ${po.poNo}: ${e.message}');
+      return po;
+    } catch (e) {
+      debugPrint('Master LC lookup failed for PO ${po.poNo}: $e');
+      return po;
+    }
   }
 
   @override

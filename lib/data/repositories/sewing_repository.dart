@@ -49,7 +49,7 @@ class SewingRepository implements ISewingRepository {
   Future<Either<String, List<SewingModel>>> byPoTag(String poTagNo) async {
     try {
       final snapshot = await _collection
-          .where('poTagNo', isEqualTo: poTagNo)
+          .where('tagNo', isEqualTo: poTagNo)
           .orderBy('sl')
           .get();
       return Right(snapshot.docs.map(SewingModel.fromSnapshot).toList());
@@ -347,7 +347,7 @@ class SewingRepository implements ISewingRepository {
     required DateTime upToDate,
   }) async {
     final snapshot = await _collection
-        .where('poTagNo', isEqualTo: poTagNo)
+        .where('tagNo', isEqualTo: poTagNo)
         .where('sewingDate', isLessThanOrEqualTo: Timestamp.fromDate(upToDate))
         .get();
     return snapshot.docs.fold<int>(

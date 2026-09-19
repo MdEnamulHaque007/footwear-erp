@@ -166,7 +166,8 @@ class CuttingRepository implements ICuttingRepository {
     }
 
     return items.map((item) {
-      if (item.tagNo.isNotEmpty && item.poQuantity != 0) return item;
+      // Continue enrichment even when tag/quantity already exist because
+      // legacy records may still be missing company/project.
       final po = poByNo[item.poNo];
       if (po == null) {
         debugPrint('Cutting PO not found: ${item.poNo}');
@@ -175,23 +176,18 @@ class CuttingRepository implements ICuttingRepository {
       final matchingLines = po.effectiveLineItems.where((line) {
         return _normalize(line.article) == _normalize(item.article) &&
             _normalize(line.color) == _normalize(item.color);
-      });
-      if (matchingLines.isEmpty) {
-        debugPrint(
-          'Cutting PO line not found: ${item.poNo} / '
-          '${item.article} / ${item.color}',
-        );
-        return item;
-      }
-      final line = matchingLines.first;
+      }).toList();
+      final line = matchingLines.isEmpty ? null : matchingLines.first;
       final poQuantity = item.poQuantity == 0
-          ? line.poQuantity
+          ? (line?.poQuantity ?? 0)
           : item.poQuantity;
       final tagNo = item.tagNo.isEmpty ? po.tagNo : item.tagNo;
       return CuttingModel.fromEntity(
         item.copyWith(
           tagNo: tagNo,
           poTagNo: item.poTagNo.isEmpty ? tagNo : item.poTagNo,
+          company: item.company.isEmpty ? po.company : item.company,
+          project: item.project.isEmpty ? po.project : item.project,
           poQuantity: poQuantity,
         ),
       );
@@ -235,7 +231,7 @@ class CuttingRepository implements ICuttingRepository {
   @override
   Future<Either<String, List<String>>> getPONoList() async {
     try {
-      final snapshot = await _poCollection.orderBy('poNo').limit(100).get();
+      final snapshot = await _poCollection.orderBy('poNo').limit(1000).get();
       return Right(
         snapshot.docs
             .map((doc) => doc.data()['poNo'] as String? ?? '')

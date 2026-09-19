@@ -16,7 +16,7 @@ class Cutting with _$Cutting {
     required String article,
     required String color,
     required int cuttingQuantity,
-    String? entryPerson,
+    @Default('') String entryPerson,
     @JsonKey(includeFromJson: true, includeToJson: true)
     @Default('')
     /// Auto-fetched from purchase_orders.tagNo

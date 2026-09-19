@@ -16,6 +16,7 @@ class Cutting with _$Cutting {
     required String article,
     required String color,
     required int cuttingQuantity,
+    String? entryPerson,
   }) = _Cutting;
 
   factory Cutting.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {

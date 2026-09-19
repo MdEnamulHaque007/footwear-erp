@@ -27,6 +27,9 @@ class Cutting with _$Cutting {
     @Default('')
     /// Auto-fetched from purchase_orders.
     String project,
+    @Default(0)
+    /// From PO lineItems[article+color].poQuantity
+    int poQuantity,
   }) = _Cutting;
 
   factory Cutting.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {

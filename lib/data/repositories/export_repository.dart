@@ -45,7 +45,7 @@ class ExportRepository implements IExportRepository {
   Future<Either<String, List<ExportModel>>> byPoTag(String poTagNo) async {
     try {
       final snapshot = await _collection
-          .where('poTagNo', isEqualTo: poTagNo)
+          .where('tagNo', isEqualTo: poTagNo)
           .orderBy('sl')
           .get();
       return Right(snapshot.docs.map(ExportModel.fromSnapshot).toList());

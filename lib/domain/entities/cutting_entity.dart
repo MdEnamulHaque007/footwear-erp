@@ -21,9 +21,8 @@ class CuttingLine {
 /// A Cutting (fabric cutting) entry.
 ///
 /// PO-line driven: an entry records how many pieces of one
-/// `poNo` + `article` + `color` line were cut on [cuttingDate]. `poTagNo` and
-/// `quantity` are kept as legacy aliases so older Firestore records and the
-/// downstream Sewing/Reporting chain keep working.
+/// `poNo` + `article` + `color` line were cut on [cuttingDate]. `tagNo` is the
+/// single source of truth; `poTagNo` is retained only as a legacy alias.
 class CuttingEntity {
   const CuttingEntity({
     this.id,

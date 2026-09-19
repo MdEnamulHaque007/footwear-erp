@@ -117,7 +117,7 @@ class CuttingRepository implements ICuttingRepository {
   Future<Either<String, List<CuttingModel>>> byPoTag(String poTagNo) async {
     try {
       final s = await _collection
-          .where('poTagNo', isEqualTo: poTagNo)
+          .where('tagNo', isEqualTo: poTagNo)
           .orderBy('cuttingDate', descending: true)
           .get();
       return Right(s.docs.map(CuttingModel.fromSnapshot).toList());
@@ -193,7 +193,7 @@ class CuttingRepository implements ICuttingRepository {
       return CuttingModel.fromEntity(
         item.copyWith(
           tagNo: tagNo,
-          poTagNo: item.poTagNo.isEmpty ? tagNo : item.poTagNo,
+          poTagNo: item.tagNo.isEmpty ? tagNo : item.tagNo,
           company: item.company.isEmpty ? po.company : item.company,
           project: item.project.isEmpty ? po.project : item.project,
           poQuantity: poQuantity,
@@ -434,7 +434,7 @@ class CuttingRepository implements ICuttingRepository {
     required DateTime upToDate,
   }) async {
     final snapshot = await _collection
-        .where('poTagNo', isEqualTo: poTagNo)
+        .where('tagNo', isEqualTo: poTagNo)
         .where('cuttingDate', isLessThanOrEqualTo: Timestamp.fromDate(upToDate))
         .get();
     return snapshot.docs.fold<int>(

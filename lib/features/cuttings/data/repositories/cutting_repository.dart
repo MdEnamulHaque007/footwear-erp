@@ -125,7 +125,11 @@ class FirestoreCuttingRepository implements CuttingRepository {
         syncStatus: cutting.syncStatus.isEmpty ? 'synced' : cutting.syncStatus,
       );
       final docId = _buildDocId(prepared);
-      await _collection.doc(docId).set(prepared.toFirestore());
+      final ref = _collection.doc(docId);
+      if ((await ref.get()).exists) {
+        throw const Failure('A cutting record already exists for this date, PO, article and color.');
+      }
+      await ref.set(prepared.toFirestore());
     } on FirebaseException catch (e) {
       throw Failure(e.message ?? 'Firestore error', code: e.code);
     } catch (e) {

@@ -32,7 +32,7 @@ class ProductionModel extends ProductionEntity {
     sl: e.sl,
     voucherNo: e.voucherNo,
     productionDate: e.productionDate,
-    poTagNo: e.poTagNo,
+    poTagNo: e.tagNo,
     quantity: e.quantity,
     entryPerson: e.entryPerson,
     poNo: e.poNo,
@@ -56,7 +56,8 @@ class ProductionModel extends ProductionEntity {
     DocumentSnapshot<Map<String, dynamic>> s,
   ) {
     final d = s.data() ?? {};
-    final tagNo = _string(d['tagNo'] ?? d['poTagNo']);
+    final primaryTagNo = _string(d['tagNo']);
+    final tagNo = primaryTagNo.isNotEmpty ? primaryTagNo : _string(d['poTagNo']);
     final quantity = _int(d['quantity'] ?? d['productionQuantity']);
     return ProductionModel(
       id: s.id,

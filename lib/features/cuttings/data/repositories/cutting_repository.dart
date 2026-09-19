@@ -177,9 +177,24 @@ class FirestoreCuttingRepository implements CuttingRepository {
 
   @override
   Future<void> softDelete(String docId) async {
-    throw const Failure(
-      'Soft delete is not available because the Cutting schema has no deletion marker field.',
-    );
+    try {
+      final sourceRef = _collection.doc(docId);
+      final archiveRef = _firestore.collection('cuttings_deleted').doc(docId);
+      await _firestore.runTransaction<void>((transaction) async {
+        final snapshot = await transaction.get(sourceRef);
+        if (!snapshot.exists) {
+          throw const Failure('Cutting record not found');
+        }
+        transaction.set(archiveRef, snapshot.data()!);
+        transaction.delete(sourceRef);
+      });
+    } on Failure {
+      rethrow;
+    } on FirebaseException catch (e) {
+      throw Failure(e.message ?? 'Firestore error', code: e.code);
+    } catch (e) {
+      throw Failure(e.toString());
+    }
   }
 
   String _buildDocId(Cutting cutting) {

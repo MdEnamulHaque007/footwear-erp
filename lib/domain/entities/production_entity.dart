@@ -24,8 +24,8 @@ class SewingLine {
 /// Production is PO-line driven: an entry records how many pieces of one
 /// `poNo` + `article` + `color` line were produced on [productionDate]. Its
 /// quantity is validated against the cumulative Sewing quantity completed on or
-/// before that date. `poTagNo` and `quantity` remain the canonical stored
-/// fields so the existing Issue chain and older Firestore records keep working.
+/// before that date. `tagNo` is the single source of truth; `poTagNo` is only a legacy alias
+/// retained for backward compatibility with older Firestore records.
 class ProductionEntity {
   const ProductionEntity({
     this.id,
@@ -57,7 +57,7 @@ class ProductionEntity {
   final String voucherNo;
   final DateTime productionDate;
 
-  /// PO tag. Kept as the identity used by the Issue module and older records.
+  /// Legacy alias of [tagNo]. Always identical to [tagNo].
   String get poTagNo => tagNo;
 
   /// Legacy alias of the produced quantity (== [quantity]).
@@ -66,7 +66,7 @@ class ProductionEntity {
   final String entryPerson;
   final String poNo;
 
-  /// Explicit tag column, defaults to [poTagNo] when read from legacy records.
+  /// Primary PO tag column; legacy records are normalized into this field.
   final String tagNo;
   final String company;
   final String project;

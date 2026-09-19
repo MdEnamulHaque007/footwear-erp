@@ -65,7 +65,7 @@ class _ProductionFormScreenState extends State<ProductionFormScreen> {
       entryPerson.text = item.entryPerson;
       remarks.text = item.remarks;
       poNo = item.poNo;
-      tagNo = item.poTagNo;
+      tagNo = item.tagNo;
       company = item.company;
       project = item.project;
       article = item.article;

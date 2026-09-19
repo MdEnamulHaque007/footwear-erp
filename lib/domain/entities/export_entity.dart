@@ -31,11 +31,11 @@ class ExportEntity {
     required this.sl,
     required this.voucherNo,
     required this.exportDate,
-    required this.poTagNo,
+    String? poTagNo,
     required this.quantity,
     required this.entryPerson,
     this.poNo = '',
-    this.tagNo = '',
+    String tagNo = '',
     this.company = '',
     this.project = '',
     this.article = '',
@@ -49,7 +49,7 @@ class ExportEntity {
     this.syncStatus,
     this.createdAt,
     this.updatedAt,
-  });
+  }) : tagNo = tagNo.isNotEmpty ? tagNo : (poTagNo ?? '');
 
   final String? id;
   final int sl;
@@ -57,7 +57,7 @@ class ExportEntity {
   final DateTime exportDate;
 
   /// PO tag. Kept as the identity used by legacy records and reporting.
-  final String poTagNo;
+  String get poTagNo => tagNo;
 
   /// Legacy alias of the exported quantity (== [quantity]).
   final int quantity;

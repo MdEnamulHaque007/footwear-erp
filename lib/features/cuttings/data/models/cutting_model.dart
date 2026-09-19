@@ -17,6 +17,10 @@ class Cutting with _$Cutting {
     required String color,
     required int cuttingQuantity,
     String? entryPerson,
+    @JsonKey(includeFromJson: true, includeToJson: true)
+    @Default('')
+    /// Auto-fetched from purchase_orders.tagNo
+    String tagNo,
   }) = _Cutting;
 
   factory Cutting.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {

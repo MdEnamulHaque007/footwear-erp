@@ -21,6 +21,12 @@ class Cutting with _$Cutting {
     @Default('')
     /// Auto-fetched from purchase_orders.tagNo
     String tagNo,
+    @Default('')
+    /// Auto-fetched from purchase_orders.
+    String company,
+    @Default('')
+    /// Auto-fetched from purchase_orders.
+    String project,
   }) = _Cutting;
 
   factory Cutting.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {

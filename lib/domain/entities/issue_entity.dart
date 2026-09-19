@@ -24,8 +24,8 @@ class ProductionLine {
 /// Issue is PO-line driven: an entry records how many pieces of one
 /// `poNo` + `article` + `color` line were issued on [issueDate]. Its quantity is
 /// validated against the cumulative Production quantity completed on or before
-/// that date. `poTagNo` and `quantity` stay as the canonical stored fields so
-/// older Firestore records and the reporting/export chain keep working.
+/// that date. `tagNo` is the single source of truth; `poTagNo` is only a
+/// legacy alias retained for backward compatibility.
 class IssueEntity {
   const IssueEntity({
     this.id,
@@ -57,7 +57,7 @@ class IssueEntity {
   final String voucherNo;
   final DateTime issueDate;
 
-  /// PO tag. Kept as the identity used by legacy records and reporting.
+  /// Legacy alias of [tagNo]. Always identical to [tagNo].
   String get poTagNo => tagNo;
 
   /// Legacy alias of the issued quantity (== [quantity]).

@@ -74,29 +74,48 @@ class TimelapseRepository implements ITimelapseRepository {
     final field = dataType == DataType.quantity
         ? department.quantityField
         : department.valueField;
-    final snapshot = await _firestore
-        .collection(department.collection)
-        .where(
-          department.dateField,
-          isGreaterThanOrEqualTo: Timestamp.fromDate(from),
-        )
-        .where(
-          department.dateField,
-          isLessThanOrEqualTo: Timestamp.fromDate(
-            to.add(const Duration(days: 1)).subtract(const Duration(microseconds: 1)),
-          ),
-        )
-        .limit(_queryLimit)
-        .get();
-
     final totals = <DateTime, double>{};
-    for (final document in snapshot.docs) {
-      final data = document.data();
-      final date = _date(data[department.dateField]);
-      if (date == null) continue;
-      final day = _day(date);
-      totals[day] = (totals[day] ?? 0) + _number(data[field]);
+    final endTimestamp = Timestamp.fromDate(
+      to.add(const Duration(days: 1)).subtract(const Duration(microseconds: 1)),
+    );
+
+    // Do not use a single 1000-document query here. As the ERP grows, that
+    // silently drops older/newer records and makes the timeline appear to
+    // stop at an arbitrary date (which was happening around Sep-2024).
+    DocumentSnapshot<Map<String, dynamic>>? lastDocument;
+    while (true) {
+      Query<Map<String, dynamic>> query = _firestore
+          .collection(department.collection)
+          .where(
+            department.dateField,
+            isGreaterThanOrEqualTo: Timestamp.fromDate(from),
+          )
+          .where(
+            department.dateField,
+            isLessThanOrEqualTo: endTimestamp,
+          )
+          .orderBy(department.dateField)
+          .limit(_queryLimit);
+
+      if (lastDocument != null) {
+        query = query.startAfterDocument(lastDocument);
+      }
+
+      final snapshot = await query.get();
+      if (snapshot.docs.isEmpty) break;
+
+      for (final document in snapshot.docs) {
+        final data = document.data();
+        final date = _date(data[department.dateField]);
+        if (date == null) continue;
+        final day = _day(date);
+        totals[day] = (totals[day] ?? 0) + _number(data[field]);
+      }
+
+      if (snapshot.docs.length < _queryLimit) break;
+      lastDocument = snapshot.docs.last;
     }
+
     return totals;
   }
 

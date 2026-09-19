@@ -40,6 +40,9 @@ class _CuttingFormScreenState extends ConsumerState<CuttingFormScreen> {
   void initState() {
     super.initState();
     final notifier = ref.read(cuttingFormProvider.notifier);
+    if (widget.initialCutting == null) {
+      ref.invalidate(cuttingFormProvider);
+    }
     if (widget.initialCutting != null) {
       notifier.setCutting(widget.initialCutting!);
     }
@@ -77,14 +80,6 @@ class _CuttingFormScreenState extends ConsumerState<CuttingFormScreen> {
   @override
   Widget build(BuildContext context) {
     final formState = ref.watch(cuttingFormProvider);
-
-    ref.listen<CuttingFormState>(cuttingFormProvider, (previous, next) {
-      if (next.status == CuttingFormStatus.success &&
-          previous?.status != CuttingFormStatus.success &&
-          context.mounted) {
-        context.pop();
-      }
-    });
 
     return Scaffold(
       appBar: AppBar(

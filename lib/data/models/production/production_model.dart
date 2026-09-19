@@ -56,18 +56,18 @@ class ProductionModel extends ProductionEntity {
     DocumentSnapshot<Map<String, dynamic>> s,
   ) {
     final d = s.data() ?? {};
-    final poTagNo = _string(d['poTagNo']);
+    final tagNo = _string(d['tagNo'] ?? d['poTagNo']);
     final quantity = _int(d['quantity'] ?? d['productionQuantity']);
     return ProductionModel(
       id: s.id,
       sl: _int(d['sl']),
       voucherNo: _string(d['voucherNo']),
       productionDate: _date(d['productionDate']) ?? DateTime.now(),
-      poTagNo: poTagNo,
+      poTagNo: tagNo,
       quantity: quantity,
       entryPerson: _string(d['entryPerson']),
       poNo: _string(d['poNo']),
-      tagNo: _string(d['tagNo'] ?? poTagNo),
+      tagNo: tagNo,
       company: _string(d['company']),
       project: _string(d['project']),
       article: _string(d['article']),
@@ -91,6 +91,8 @@ class ProductionModel extends ProductionEntity {
     'productionQuantity': quantity,
     'entryPerson': entryPerson,
     'poNo': poNo,
+    'tagNo': tagNo,
+    'poTagNo': tagNo,
     'article': article,
     'color': color,
     'factoryName': factoryName,

@@ -30,7 +30,7 @@ class CuttingEntity {
     required this.voucherNo,
     required this.cuttingDate,
     this.poNo = '',
-    this.tagNo = '',
+    String tagNo = '',
     this.company = '',
     this.project = '',
     this.article = '',
@@ -46,7 +46,7 @@ class CuttingEntity {
     this.syncStatus,
     this.createdAt,
     this.updatedAt,
-  }) : poTagNo = poTagNo ?? tagNo,
+  }) : tagNo = tagNo.isNotEmpty ? tagNo : (poTagNo ?? ''),
        quantity = quantity ?? cuttingQuantity;
 
   final String? id;
@@ -67,8 +67,8 @@ class CuttingEntity {
   /// The cutting quantity entered in this entry.
   final int cuttingQuantity;
 
-  /// Legacy PO tag (kept for older records / downstream validation).
-  final String poTagNo;
+  /// Legacy PO tag alias. Always identical to [tagNo].
+  String get poTagNo => tagNo;
 
   /// Legacy alias of [cuttingQuantity].
   final int quantity;
@@ -116,7 +116,7 @@ class CuttingEntity {
     voucherNo: voucherNo ?? this.voucherNo,
     cuttingDate: cuttingDate ?? this.cuttingDate,
     poNo: poNo ?? this.poNo,
-    tagNo: tagNo ?? this.tagNo,
+    tagNo: tagNo ?? (poTagNo ?? this.tagNo),
     company: company ?? this.company,
     project: project ?? this.project,
     article: article ?? this.article,

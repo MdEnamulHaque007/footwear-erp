@@ -13,7 +13,7 @@ class SewingEntity {
     required this.voucherNo,
     required this.sewingDate,
     this.poNo = '',
-    this.tagNo = '',
+    String tagNo = '',
     this.company = '',
     this.project = '',
     this.article = '',
@@ -29,7 +29,7 @@ class SewingEntity {
     this.updatedAt,
     this.source,
     this.syncStatus,
-  }) : poTagNo = poTagNo ?? tagNo,
+  }) : tagNo = tagNo.isNotEmpty ? tagNo : (poTagNo ?? ''),
        quantity = quantity ?? sewingQuantity,
        createdAt = createdAt ?? DateTime.now();
 
@@ -56,8 +56,8 @@ class SewingEntity {
   /// The sewing quantity entered in this entry.
   final int sewingQuantity;
 
-  /// Legacy PO tag (kept for older records / production validation).
-  final String poTagNo;
+  /// Legacy PO tag alias. Always identical to [tagNo].
+  String get poTagNo => tagNo;
 
   /// Legacy alias of [sewingQuantity].
   final int quantity;

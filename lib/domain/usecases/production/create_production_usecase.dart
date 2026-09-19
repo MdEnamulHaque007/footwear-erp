@@ -10,7 +10,7 @@ class CreateProductionUseCase {
 
   Future<Either<String, void>> call(ProductionEntity item) async {
     final error = await _validate(
-      poTagNo: item.poTagNo,
+      poTagNo: item.tagNo,
       productionDate: item.productionDate,
       candidateQuantity: item.quantity,
       poNo: item.poNo,

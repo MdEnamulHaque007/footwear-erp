@@ -30,6 +30,10 @@ class Cutting with _$Cutting {
     @Default(0)
     /// From PO lineItems[article+color].poQuantity
     int poQuantity,
+    @Default('manual') String source,
+    @Default('synced') String syncStatus,
+    required DateTime createdAt,
+    required DateTime updatedAt,
   }) = _Cutting;
 
   factory Cutting.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -44,6 +48,7 @@ class Cutting with _$Cutting {
         ..._$CuttingToJson(this),
         'cuttingDate': Timestamp.fromDate(cuttingDate),
         'factoryName': factoryName.trim(),
+        'updatedAt': Timestamp.now(),
       };
 
   String get formattedDate => DateFormat('dd-MMM-yyyy').format(cuttingDate);

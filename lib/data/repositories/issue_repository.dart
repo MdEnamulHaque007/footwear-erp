@@ -45,7 +45,7 @@ class IssueRepository implements IIssueRepository {
   Future<Either<String, List<IssueModel>>> byPoTag(String poTagNo) async {
     try {
       final snapshot = await _collection
-          .where('poTagNo', isEqualTo: poTagNo)
+          .where('tagNo', isEqualTo: poTagNo)
           .orderBy('sl')
           .get();
       return Right(snapshot.docs.map(IssueModel.fromSnapshot).toList());
@@ -236,7 +236,7 @@ class IssueRepository implements IIssueRepository {
     String? excludingId,
   }) async {
     final snapshot = await _collection
-        .where('poTagNo', isEqualTo: poTagNo)
+        .where('tagNo', isEqualTo: poTagNo)
         .limit(1000)
         .get();
     final cutoff = DateTime(upToDate.year, upToDate.month, upToDate.day);

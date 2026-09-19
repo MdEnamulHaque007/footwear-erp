@@ -47,7 +47,7 @@ class ProductionRepository implements IProductionRepository {
   Future<Either<String, List<ProductionModel>>> byPoTag(String poTagNo) async {
     try {
       final snapshot = await _collection
-          .where('poTagNo', isEqualTo: poTagNo)
+          .where('tagNo', isEqualTo: poTagNo)
           .orderBy('sl')
           .get();
       return Right(snapshot.docs.map(ProductionModel.fromSnapshot).toList());
@@ -218,7 +218,7 @@ class ProductionRepository implements IProductionRepository {
     required DateTime upToDate,
   }) async {
     final snapshot = await _collection
-        .where('poTagNo', isEqualTo: poTagNo)
+        .where('tagNo', isEqualTo: poTagNo)
         .where('productionDate', isLessThanOrEqualTo: Timestamp.fromDate(upToDate))
         .get();
     return snapshot.docs.fold<int>(
@@ -269,7 +269,7 @@ class ProductionRepository implements IProductionRepository {
       // 1. Cumulative Sewing for this PO line, completed on or before the
       // selected production date.
       final sewingQty = await _cumulativeSewing(
-        poTagNo: item.poTagNo,
+        poTagNo: item.tagNo,
         poNo: item.poNo,
         article: item.article,
         color: item.color,
@@ -279,7 +279,7 @@ class ProductionRepository implements IProductionRepository {
       // 2. Production already booked against the same PO line.
       final producedQty = item.poNo.isEmpty
           ? await _cumulativeProductionByTag(
-              poTagNo: item.poTagNo,
+              poTagNo: item.tagNo,
               excludingId: ref.id,
             )
           : await getCumulativeProductionQty(
@@ -382,7 +382,7 @@ class ProductionRepository implements IProductionRepository {
   }) async {
     if (poNo.isEmpty) {
       final snapshot = await _sewingCollection
-          .where('poTagNo', isEqualTo: poTagNo)
+          .where('tagNo', isEqualTo: poTagNo)
           .where(
             'sewingDate',
             isLessThanOrEqualTo: Timestamp.fromDate(upToDate),
@@ -418,7 +418,7 @@ class ProductionRepository implements IProductionRepository {
     String? excludingId,
   }) async {
     final snapshot = await _collection
-        .where('poTagNo', isEqualTo: poTagNo)
+        .where('tagNo', isEqualTo: poTagNo)
         .limit(1000)
         .get();
     return snapshot.docs

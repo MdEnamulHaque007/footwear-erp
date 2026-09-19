@@ -1,8 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/models/cutting_model.dart';
-import '../data/repositories/cutting_repository.dart';
-import '../core/failure.dart';
+import '../../core/failure.dart';
+import '../../data/models/cutting_model.dart';
+import '../../data/repositories/cutting_repository.dart';
 
 final cuttingRepositoryProvider = Provider<CuttingRepository>(
   (ref) => FirestoreCuttingRepository(),
@@ -46,6 +48,40 @@ final cuttingsListProvider = StreamProvider<List<Cutting>>((ref) {
 final cuttingDetailProvider =
     FutureProvider.family<Cutting?, String>((ref, docId) async {
   return ref.watch(cuttingRepositoryProvider).getById(docId);
+});
+
+class CuttingAccess {
+  const CuttingAccess({
+    required this.canEdit,
+    required this.canDelete,
+  });
+
+  final bool canEdit;
+  final bool canDelete;
+}
+
+final cuttingAccessProvider = FutureProvider<CuttingAccess>((ref) async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) {
+    return const CuttingAccess(canEdit: false, canDelete: false);
+  }
+
+  final snapshot =
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+  final data = snapshot.data() ?? <String, dynamic>{};
+  final role = data['role']?.toString() ?? '';
+  final permissions = data['permissions'];
+
+  if (role == 'admin') {
+    return const CuttingAccess(canEdit: true, canDelete: true);
+  }
+
+  final modulePermissions =
+      permissions is Map ? permissions['cutting'] : null;
+  final edit =
+      modulePermissions is Map && modulePermissions['edit'] == true;
+
+  return CuttingAccess(canEdit: edit, canDelete: false);
 });
 
 enum CuttingFormStatus { idle, loading, success, error }

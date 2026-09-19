@@ -67,7 +67,7 @@ class CuttingModel extends CuttingEntity {
       color: _string(d['color']),
       poQuantity: _int(d['poQuantity']),
       cuttingQuantity: cuttingQuantity,
-      poTagNo: _string(d['poTagNo'] ?? tagNo),
+      poTagNo: tagNo,
       quantity: cuttingQuantity,
       factoryName: _string(d['factoryName']),
       entryPerson: _string(d['entryPerson']),

@@ -39,7 +39,7 @@ class SewingModel extends SewingEntity {
     color: e.color,
     cuttingQuantity: e.cuttingQuantity,
     sewingQuantity: e.effectiveQuantity,
-    poTagNo: e.poTagNo,
+    poTagNo: e.tagNo,
     quantity: e.quantity,
     factoryName: e.factoryName,
     entryPerson: e.entryPerson,
@@ -55,7 +55,8 @@ class SewingModel extends SewingEntity {
   /// carry the legacy `poTagNo` + `quantity` fields.
   factory SewingModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> s) {
     final data = s.data() ?? {};
-    final tagNo = _string(data['tagNo'] ?? data['poTagNo']);
+    final primaryTagNo = _string(data['tagNo']);
+    final tagNo = primaryTagNo.isNotEmpty ? primaryTagNo : _string(data['poTagNo']);
     final sewingQuantity = _int(data['sewingQuantity'] ?? data['quantity']);
     return SewingModel(
       id: s.id,
@@ -113,7 +114,7 @@ class SewingModel extends SewingEntity {
     color: color,
     cuttingQuantity: cuttingQuantity,
     sewingQuantity: sewingQuantity,
-    poTagNo: poTagNo,
+    poTagNo: tagNo,
     quantity: quantity,
     factoryName: factoryName,
     entryPerson: entryPerson,

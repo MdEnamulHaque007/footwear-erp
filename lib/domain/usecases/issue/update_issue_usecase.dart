@@ -12,7 +12,7 @@ class UpdateIssueUseCase {
     if (item.poNo.isNotEmpty) {
       final error = await _validate.validateUpdate(
         issueId: item.id ?? '',
-        poTagNo: item.poTagNo,
+        poTagNo: item.tagNo,
         issueDate: item.issueDate,
         candidateQuantity: item.quantity,
         poNo: item.poNo,
@@ -24,7 +24,7 @@ class UpdateIssueUseCase {
     }
     final error = await _validate.validateUpdate(
       issueId: item.id ?? '',
-      poTagNo: item.poTagNo,
+      poTagNo: item.tagNo,
       issueDate: item.issueDate,
       candidateQuantity: item.quantity,
     );

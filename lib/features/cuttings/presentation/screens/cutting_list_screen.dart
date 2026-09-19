@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../data/models/cutting_model.dart';
+import '../../data/models/cutting_model.dart';
 import 'providers/cutting_provider.dart';
 
 class CuttingListScreen extends ConsumerStatefulWidget {

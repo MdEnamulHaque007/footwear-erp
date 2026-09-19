@@ -10,6 +10,7 @@ class Cutting with _$Cutting {
   const factory Cutting({
     required String voucherNo,
     required DateTime cuttingDate,
+    @Default('') String factoryName,
   }) = _Cutting;
 
   factory Cutting.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -23,6 +24,7 @@ class Cutting with _$Cutting {
   Map<String, dynamic> toFirestore() => {
         ..._$CuttingToJson(this),
         'cuttingDate': Timestamp.fromDate(cuttingDate),
+        'factoryName': factoryName.trim(),
       };
 
   String get formattedDate => DateFormat('dd-MMM-yyyy').format(cuttingDate);

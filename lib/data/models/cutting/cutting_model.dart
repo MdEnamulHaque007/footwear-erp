@@ -37,7 +37,7 @@ class CuttingModel extends CuttingEntity {
     color: e.color,
     poQuantity: e.poQuantity,
     cuttingQuantity: e.cuttingQuantity,
-    poTagNo: e.poTagNo,
+    poTagNo: e.tagNo,
     quantity: e.quantity,
     factoryName: e.factoryName,
     entryPerson: e.entryPerson,
@@ -53,7 +53,8 @@ class CuttingModel extends CuttingEntity {
   /// the legacy `poTagNo` + `quantity` fields.
   factory CuttingModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> s) {
     final d = s.data() ?? {};
-    final tagNo = _string(d['tagNo'] ?? d['poTagNo']);
+    final primaryTagNo = _string(d['tagNo']);
+    final tagNo = primaryTagNo.isNotEmpty ? primaryTagNo : _string(d['poTagNo']);
     final cuttingQuantity = _int(d['cuttingQuantity'] ?? d['quantity']);
     return CuttingModel(
       id: s.id,

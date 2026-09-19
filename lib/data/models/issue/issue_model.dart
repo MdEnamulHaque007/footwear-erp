@@ -32,7 +32,7 @@ class IssueModel extends IssueEntity {
     sl: e.sl,
     voucherNo: e.voucherNo,
     issueDate: e.issueDate,
-    poTagNo: e.poTagNo,
+    poTagNo: e.tagNo,
     quantity: e.quantity,
     entryPerson: e.entryPerson,
     poNo: e.poNo,
@@ -57,7 +57,8 @@ class IssueModel extends IssueEntity {
   /// the legacy `poTagNo` + `quantity` fields.
   factory IssueModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> s) {
     final d = s.data() ?? {};
-    final tagNo = _string(d['tagNo'] ?? d['poTagNo']);
+    final primaryTagNo = _string(d['tagNo']);
+    final tagNo = primaryTagNo.isNotEmpty ? primaryTagNo : _string(d['poTagNo']);
     final quantity = _int(d['quantity'] ?? d['issueQuantity']);
     return IssueModel(
       id: s.id,
@@ -110,7 +111,7 @@ class IssueModel extends IssueEntity {
     sl: sl,
     voucherNo: voucherNo,
     issueDate: issueDate,
-    poTagNo: poTagNo,
+    poTagNo: tagNo,
     quantity: quantity,
     entryPerson: entryPerson,
     poNo: poNo,

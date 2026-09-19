@@ -11,7 +11,7 @@ class UpdateProductionUseCase {
   Future<Either<String, void>> call(ProductionEntity item) async {
     final error = await _validate.validateUpdate(
       productionId: item.id ?? '',
-      poTagNo: item.poTagNo,
+      poTagNo: item.tagNo,
       productionDate: item.productionDate,
       candidateQuantity: item.quantity,
       poNo: item.poNo,

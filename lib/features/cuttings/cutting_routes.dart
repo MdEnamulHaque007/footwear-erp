@@ -1,9 +1,9 @@
 import 'package:go_router/go_router.dart';
 
-import '../presentation/screens/cutting_detail_screen.dart';
-import '../presentation/screens/cutting_form_screen.dart';
-import '../presentation/screens/cutting_list_screen.dart';
-import '../data/models/cutting_model.dart';
+import 'data/models/cutting_model.dart';
+import 'presentation/screens/cutting_detail_screen.dart';
+import 'presentation/screens/cutting_form_screen.dart';
+import 'presentation/screens/cutting_list_screen.dart';
 
 final List<RouteBase> cuttingRoutes = [
   GoRoute(

@@ -13,6 +13,7 @@ class Cutting with _$Cutting {
     @Default('') String factoryName,
     required String poNo,
     required String article,
+    required String color,
   }) = _Cutting;
 
   factory Cutting.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {

@@ -43,9 +43,7 @@ class FirestoreCuttingRepository implements CuttingRepository {
     DateTime? to,
   }) async {
     try {
-      Query<Map<String, dynamic>> query =
-          _collection.orderBy('cuttingDate', descending: true);
-
+      Query<Map<String, dynamic>> query = _collection;
       if (poNo != null && poNo.trim().isNotEmpty) {
         query = query.where('poNo', isEqualTo: poNo.trim());
       }
@@ -63,7 +61,9 @@ class FirestoreCuttingRepository implements CuttingRepository {
       }
 
       final snapshot = await query.get();
-      return Right(snapshot.docs.map(Cutting.fromFirestore).toList());
+      final items = snapshot.docs.map(Cutting.fromFirestore).toList()
+        ..sort((a, b) => b.cuttingDate.compareTo(a.cuttingDate));
+      return Right(items);
     } on FirebaseException catch (e) {
       return Left(Failure(e.message ?? 'Firestore error', code: e.code));
     } catch (e) {
@@ -77,9 +77,7 @@ class FirestoreCuttingRepository implements CuttingRepository {
     DateTime? from,
     DateTime? to,
   }) {
-    Query<Map<String, dynamic>> query =
-        _collection.orderBy('cuttingDate', descending: true);
-
+    Query<Map<String, dynamic>> query = _collection;
     if (poNo != null && poNo.trim().isNotEmpty) {
       query = query.where('poNo', isEqualTo: poNo.trim());
     }
@@ -96,9 +94,11 @@ class FirestoreCuttingRepository implements CuttingRepository {
       );
     }
 
-    return query.snapshots().map(
-      (snapshot) => snapshot.docs.map(Cutting.fromFirestore).toList(),
-    );
+    return query.snapshots().map((snapshot) {
+      final items = snapshot.docs.map(Cutting.fromFirestore).toList()
+        ..sort((a, b) => b.cuttingDate.compareTo(a.cuttingDate));
+      return items;
+    });
   }
 
   @override
@@ -136,7 +136,15 @@ class FirestoreCuttingRepository implements CuttingRepository {
   @override
   Future<void> update(Cutting cutting) async {
     try {
-      final existing = await _collection.doc(_buildDocId(cutting)).get();
+      final targetId = _buildDocId(cutting);
+      var existing = await _collection.doc(targetId).get();
+      if (!existing.exists) {
+        final matches = await _collection
+            .where('voucherNo', isEqualTo: cutting.voucherNo.trim())
+            .limit(1)
+            .get();
+        if (matches.docs.isNotEmpty) existing = matches.docs.first;
+      }
       if (!existing.exists) {
         throw const Failure('Cutting record not found');
       }
@@ -146,10 +154,14 @@ class FirestoreCuttingRepository implements CuttingRepository {
         createdAt: existingCutting.createdAt,
         updatedAt: DateTime.now(),
       );
+      final targetRef = _collection.doc(targetId);
 
-      await _collection.doc(_buildDocId(prepared)).set(
-        prepared.toFirestore(),
-      );
+      await _firestore.runTransaction<void>((transaction) async {
+        if (existing.reference.path != targetRef.path) {
+          transaction.delete(existing.reference);
+        }
+        transaction.set(targetRef, prepared.toFirestore());
+      });
     } on Failure {
       rethrow;
     } on FirebaseException catch (e) {

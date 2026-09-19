@@ -7,6 +7,7 @@ part 'cutting_model.g.dart';
 
 @freezed
 class Cutting with _$Cutting {
+  @Assert('cuttingQuantity > 0', 'cuttingQuantity must be greater than 0')
   const factory Cutting({
     required String voucherNo,
     required DateTime cuttingDate,

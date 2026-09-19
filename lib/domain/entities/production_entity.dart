@@ -32,11 +32,11 @@ class ProductionEntity {
     required this.sl,
     required this.voucherNo,
     required this.productionDate,
-    required this.poTagNo,
+    String? poTagNo,
     required this.quantity,
     required this.entryPerson,
     this.poNo = '',
-    this.tagNo = '',
+    String tagNo = '',
     this.company = '',
     this.project = '',
     this.article = '',
@@ -50,7 +50,7 @@ class ProductionEntity {
     this.syncStatus,
     this.createdAt,
     this.updatedAt,
-  });
+  }) : tagNo = tagNo.isNotEmpty ? tagNo : (poTagNo ?? '');
 
   final String? id;
   final int sl;
@@ -58,7 +58,7 @@ class ProductionEntity {
   final DateTime productionDate;
 
   /// PO tag. Kept as the identity used by the Issue module and older records.
-  final String poTagNo;
+  String get poTagNo => tagNo;
 
   /// Legacy alias of the produced quantity (== [quantity]).
   final int quantity;

@@ -65,7 +65,7 @@ class _ExportFormScreenState extends State<ExportFormScreen> {
       entryPerson.text = item.entryPerson;
       remarks.text = item.remarks;
       poNo = item.poNo;
-      tagNo = item.poTagNo;
+      tagNo = item.tagNo;
       company = item.company;
       project = item.project;
       article = item.article;

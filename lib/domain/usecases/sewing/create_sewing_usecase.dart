@@ -22,7 +22,7 @@ class CreateSewingUseCase {
         poNo: item.poNo,
         article: item.article,
         color: item.color,
-        candidateQuantity: item.effectiveQuantity,
+        candidateQuantity: item.sewingQuantity,
         sewingDate: item.sewingDate,
       );
       if (error != null) return Left(error);

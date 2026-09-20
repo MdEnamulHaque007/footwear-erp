@@ -51,7 +51,7 @@ class FakeSewingRepository implements ISewingRepository {
   }) async => const Right([]);
 
   @override
-  Future<Either<String, List<SewingModel>>> byPoTag(String poTagNo) async =>
+  Future<Either<String, List<SewingModel>>> byTagNo(String tagNo) async =>
       const Right([]);
 
   @override
@@ -101,7 +101,7 @@ class FakeSewingRepository implements ISewingRepository {
 
   @override
   Future<int> getCumulativeSewingQuantity({
-    required String poTagNo,
+    required String tagNo,
     required DateTime upToDate,
   }) async => sewing;
 }

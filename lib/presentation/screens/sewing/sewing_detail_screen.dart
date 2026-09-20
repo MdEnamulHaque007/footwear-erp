@@ -112,7 +112,7 @@ class _SewingDetailScreenState extends State<SewingDetailScreen> {
                   _row('This Sewing Qty', '${item.sewingQuantity}'),
                   _row(
                     'Remaining After This',
-                    '${state.availableQuantity - item.effectiveQuantity}',
+                    '${state.availableQuantity - item.sewingQuantity}',
                   ),
                 ]),
                 _section('Sync Status', [

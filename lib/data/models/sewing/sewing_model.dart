@@ -78,12 +78,16 @@ class SewingModel extends SewingEntity {
   }
 
   Map<String, dynamic> toFirestore() => {
+    'sl': sl,
     'voucherNo': voucherNo,
     'sewingDate': Timestamp.fromDate(sewingDate),
     'poNo': poNo,
     'tagNo': tagNo,
+    'company': company,
+    'project': project,
     'article': article,
     'color': color,
+    'cuttingQuantity': cuttingQuantity,
     'sewingQuantity': sewingQuantity,
     'factoryName': factoryName,
     'entryPerson': entryPerson,

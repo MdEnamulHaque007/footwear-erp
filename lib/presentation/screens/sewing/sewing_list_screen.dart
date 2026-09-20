@@ -67,7 +67,7 @@ class _SewingListScreenState extends State<SewingListScreen> {
           'date': _date(item.sewingDate),
           'voucher': item.voucherNo,
           'po': item.poNo,
-          'tag': item.tagNo.isEmpty ? item.poTagNo : item.tagNo,
+          'tag': item.tagNo,
           'article': item.article,
           'color': item.color,
           'quantity': item.sewingQuantity,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,7 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../data/models/cutting_model.dart';
-import '../../data/repositories/purchase_order_repository.dart';
+import '../../../../data/repositories/po_repository.dart';
 import '../providers/cutting_provider.dart';
 
 class CuttingFormScreen extends ConsumerStatefulWidget {
@@ -33,7 +35,8 @@ class _CuttingFormScreenState extends ConsumerState<CuttingFormScreen> {
   final _quantityController = TextEditingController();
   final _entryPersonController = TextEditingController();
 
-  final _poRepository = PurchaseOrderRepository();
+  final _poRepository = PORepository();
+  Timer? _resolveDebounce;
   List<String> _poNos = const [];
 
   @override
@@ -74,6 +77,7 @@ class _CuttingFormScreenState extends ConsumerState<CuttingFormScreen> {
     _colorController.dispose();
     _quantityController.dispose();
     _entryPersonController.dispose();
+    _resolveDebounce?.cancel();
     super.dispose();
   }
 
@@ -99,7 +103,6 @@ class _CuttingFormScreenState extends ConsumerState<CuttingFormScreen> {
             _textField(
               _voucherController,
               'V.No / ভাউচার নং',
-              requiredField: true,
               onChanged: (v) =>
                   ref.read(cuttingFormProvider.notifier).update(voucherNo: v),
             ),
@@ -119,7 +122,7 @@ class _CuttingFormScreenState extends ConsumerState<CuttingFormScreen> {
               requiredField: true,
               onChanged: (v) {
                 ref.read(cuttingFormProvider.notifier).update(article: v);
-                _refreshLineQuantity();
+                _scheduleResolve();
               },
             ),
             const SizedBox(height: 12),
@@ -129,7 +132,7 @@ class _CuttingFormScreenState extends ConsumerState<CuttingFormScreen> {
               requiredField: true,
               onChanged: (v) {
                 ref.read(cuttingFormProvider.notifier).update(color: v);
-                _refreshLineQuantity();
+                _scheduleResolve();
               },
             ),
             const SizedBox(height: 12),
@@ -208,7 +211,7 @@ class _CuttingFormScreenState extends ConsumerState<CuttingFormScreen> {
         border: OutlineInputBorder(),
         suffixIcon: Icon(Icons.calendar_today),
       ),
-      validator: (_) => 'Date is required',
+      validator: (_) => null,
       onTap: () async {
         final current = ref.read(cuttingFormProvider).cutting.cuttingDate;
         final picked = await showDatePicker(
@@ -294,95 +297,50 @@ class _CuttingFormScreenState extends ConsumerState<CuttingFormScreen> {
     );
   }
 
-  Future<void> _loadPoNos() async {
-    try {
-      final values = await _poRepository.getPoNos();
-      if (!mounted) return;
-      setState(() => _poNos = values);
-    } catch (_) {}
-
-    if (_poController.text.trim().isNotEmpty) {
-      await _loadPo(_poController.text.trim());
-    }
+  void _scheduleResolve() {
+    _resolveDebounce?.cancel();
+    _resolveDebounce = Timer(
+      const Duration(milliseconds: 350),
+      _resolveFromPo,
+    );
   }
 
-  Future<void> _loadPo(String poNo) async {
-    if (poNo.trim().isEmpty) return;
-    try {
-      final po = await _poRepository.getByPoNo(poNo);
-      if (!mounted) return;
-      if (po == null) {
-        ref.read(cuttingFormProvider.notifier).update(
-              tagNo: '',
-              company: '',
-              project: '',
-              poQuantity: 0,
-            );
-        return;
-      }
-
-      final article = _articleController.text.trim().toLowerCase();
-      final color = _colorController.text.trim().toLowerCase();
-      PurchaseOrderLine? line;
-      for (final item in po.lineItems) {
-        if (item.article.toLowerCase() == article &&
-            item.color.toLowerCase() == color) {
-          line = item;
-          break;
-        }
-      }
-
-      ref.read(cuttingFormProvider.notifier).update(
-            tagNo: po.tagNo,
-            company: po.company,
-            project: po.project,
-            poQuantity: line?.poQuantity ?? 0,
-          );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('PO lookup failed: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _refreshLineQuantity() async {
+  Future<void> _resolveFromPo() async {
     final poNo = _poController.text.trim();
-    if (poNo.isEmpty) return;
-    await _loadPo(poNo);
+    if (poNo.isEmpty ||
+        _articleController.text.trim().isEmpty ||
+        _colorController.text.trim().isEmpty) {
+      return;
+    }
+
+    ref.read(cuttingFormProvider.notifier).update(poNo: poNo);
+    await ref.read(cuttingFormProvider.notifier).resolveFromPo();
   }
+
+  Future<void> _loadPoNos() async {
+    final result = await _poRepository.getPOList(limit: 100);
+    if (!mounted) return;
+    result.fold(
+      (_) {},
+      (items) {
+        setState(() {
+          _poNos = items
+              .map((item) => item.poNo.trim())
+              .where((value) => value.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort();
+        });
+      },
+    );
+  }
+
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final cutting = ref.read(cuttingFormProvider).cutting;
-    if (cutting.poQuantity > 0 &&
-        cutting.cuttingQuantity > cutting.poQuantity) {
-      final proceed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('PO Quantity Warning'),
-          content: Text(
-            'Cutting quantity (${cutting.cuttingQuantity) is greater than '
-            'PO quantity (${cutting.poQuantity). Do you want to continue?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Override / Continue'),
-            ),
-          ],
-        ),
-      );
-      if (proceed != true) return;
-    }
-
     if (widget.isEdit) {
+      final cutting = ref.read(cuttingFormProvider).cutting;
       try {
         await ref.read(cuttingRepositoryProvider).update(cutting);
         if (mounted) context.pop();
@@ -399,4 +357,5 @@ class _CuttingFormScreenState extends ConsumerState<CuttingFormScreen> {
     final ok = await ref.read(cuttingFormProvider.notifier).save();
     if (ok && mounted) context.pop();
   }
+
 }

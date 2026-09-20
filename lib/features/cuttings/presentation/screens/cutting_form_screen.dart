@@ -275,7 +275,7 @@ class _CuttingFormScreenState extends ConsumerState<CuttingFormScreen> {
       onSelected: (value) {
         _poController.text = value;
         ref.read(cuttingFormProvider.notifier).update(poNo: value);
-        _loadPo(value);
+        _resolveFromPo();
       },
       fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
         return TextFormField(

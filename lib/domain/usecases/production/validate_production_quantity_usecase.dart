@@ -92,7 +92,7 @@ class ValidateProductionQuantityUseCase {
   }) async {
     final sewingTotal = poNo.isEmpty
         ? await _sewingRepository.getCumulativeSewingQuantity(
-            poTagNo: poTagNo,
+            tagNo: poTagNo,
             upToDate: productionDate,
           )
         : await _sewingRepository.getCumulativeSewingQty(

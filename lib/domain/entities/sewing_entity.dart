@@ -3,9 +3,6 @@
 /// Sewing is PO-driven: an entry is tied to a PO line
 /// (`poNo` + `article` + `color`) and its quantity is validated against the
 /// cumulative Cutting quantity available for that line up to [sewingDate].
-/// `poTagNo` and `quantity` are kept as legacy aliases so older Firestore
-/// records and existing callers (e.g. the production validation chain) keep
-/// working.
 class SewingEntity {
   SewingEntity({
     this.id,
@@ -20,8 +17,6 @@ class SewingEntity {
     this.color = '',
     this.cuttingQuantity = 0,
     this.sewingQuantity = 0,
-    String? poTagNo,
-    int? quantity,
     this.factoryName = '',
     required this.entryPerson,
     this.remarks = '',
@@ -29,9 +24,7 @@ class SewingEntity {
     this.updatedAt,
     this.source,
     this.syncStatus,
-  }) : tagNo = tagNo.isNotEmpty ? tagNo : (poTagNo ?? ''),
-       quantity = quantity ?? sewingQuantity,
-       createdAt = createdAt ?? DateTime.now();
+  }) : createdAt = createdAt ?? DateTime.now();
 
   final String? id;
   final int sl;
@@ -56,11 +49,6 @@ class SewingEntity {
   /// The sewing quantity entered in this entry.
   final int sewingQuantity;
 
-  /// Legacy PO tag alias. Always identical to [tagNo].
-  String get poTagNo => tagNo;
-
-  /// Legacy alias of [sewingQuantity].
-  final int quantity;
 
   final String factoryName;
   final String entryPerson;
@@ -74,7 +62,4 @@ class SewingEntity {
   /// Sync state of imported records, e.g. `synced`.
   final String? syncStatus;
 
-  /// Quantity used by legacy tables/validators: [sewingQuantity] with a
-  /// [quantity] fallback for records saved before `sewingQuantity` existed.
-  int get effectiveQuantity => sewingQuantity != 0 ? sewingQuantity : quantity;
 }

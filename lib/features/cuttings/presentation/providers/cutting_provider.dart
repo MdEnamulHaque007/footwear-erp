@@ -147,10 +147,8 @@ class CuttingFormState {
 }
 
 class CuttingFormNotifier extends StateNotifier<CuttingFormState> {
-  CuttingFormNotifier(this._repository, this._useCase)
-      : super(CuttingFormState.initial());
+  CuttingFormNotifier(this._useCase) : super(CuttingFormState.initial());
 
-  final CuttingRepository _repository;
   final CreateManualCuttingUseCase _useCase;
 
   void setCutting(Cutting cutting) {
@@ -264,12 +262,12 @@ class CuttingFormNotifier extends StateNotifier<CuttingFormState> {
         return true;
       },
     );
-  }}
+  }
+}
 
 final cuttingFormProvider =
     StateNotifierProvider<CuttingFormNotifier, CuttingFormState>(
   (ref) => CuttingFormNotifier(
-        ref.watch(cuttingRepositoryProvider),
         ref.watch(manualCuttingUseCaseProvider),
       ),
 );

@@ -7,7 +7,7 @@ import 'package:footwear/domain/entities/sewing_entity.dart';
 
 void main() {
   test('Cutting uses tagNo as the single source of truth', () {
-    const item = CuttingEntity(
+    final item = CuttingEntity(
       voucherNo: 'C-1',
       cuttingDate: DateTime(2026, 1, 1),
       tagNo: 'TAG-1',
@@ -40,7 +40,7 @@ void main() {
       poTagNo: 'OTHER',
       entryPerson: 'test',
     );
-    const production = ProductionEntity(
+    final production = ProductionEntity(
       sl: 1,
       voucherNo: 'P-1',
       productionDate: DateTime(2026, 1, 1),
@@ -49,7 +49,7 @@ void main() {
       quantity: 1,
       entryPerson: 'test',
     );
-    const issue = IssueEntity(
+    final issue = IssueEntity(
       sl: 1,
       voucherNo: 'I-1',
       issueDate: DateTime(2026, 1, 1),
@@ -58,7 +58,7 @@ void main() {
       quantity: 1,
       entryPerson: 'test',
     );
-    const exportItem = ExportEntity(
+    final exportItem = ExportEntity(
       sl: 1,
       voucherNo: 'E-1',
       exportDate: DateTime(2026, 1, 1),

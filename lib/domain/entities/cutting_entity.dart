@@ -24,7 +24,7 @@ class CuttingLine {
 /// `poNo` + `article` + `color` line were cut on [cuttingDate]. `tagNo` is the
 /// single source of truth; `poTagNo` is retained only as a legacy alias.
 class CuttingEntity {
-  const CuttingEntity({
+  CuttingEntity({
     this.id,
     required this.voucherNo,
     required this.cuttingDate,

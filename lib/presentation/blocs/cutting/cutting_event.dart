@@ -79,7 +79,7 @@ class ValidateCutting extends CuttingEvent {
     this.color,
     this.poQuantity,
     this.quantity,
-    {this.excludingId},
+    {this.excludingId}
   );
   final String poNo;
   final String article;

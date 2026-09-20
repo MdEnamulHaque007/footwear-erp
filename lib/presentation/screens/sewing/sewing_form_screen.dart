@@ -68,7 +68,7 @@ class _SewingFormScreenState extends State<SewingFormScreen> {
       color = item.color;
       cuttingQuantity = item.cuttingQuantity;
       availableQuantity = 0;
-      quantity.text = item.effectiveQuantity.toString();
+      quantity.text = item.sewingQuantity.toString();
       sewingDate = item.sewingDate;
       sewingDateController.text = _formatDate(item.sewingDate);
       cuttingQuantityController.text = cuttingQuantity.toString();

@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../data/models/cutting_model.dart';
-import 'providers/cutting_provider.dart';
+import '../providers/cutting_provider.dart';
 
 class CuttingListScreen extends ConsumerStatefulWidget {
   const CuttingListScreen({super.key});

@@ -1,8 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:footwear/domain/entities/cutting_entity.dart';
-import 'package:footwear/domain/entities/export_entity.dart';
-import 'package:footwear/domain/entities/issue_entity.dart';
-import 'package:footwear/domain/entities/production_entity.dart';
 import 'package:footwear/domain/entities/sewing_entity.dart';
 
 void main() {

@@ -5,10 +5,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/failure.dart';
 import '../../data/models/cutting_model.dart';
 import '../../data/repositories/cutting_repository.dart';
+import '../../domain/usecases/create_manual_cutting_use_case.dart';
+import '../../../../data/repositories/master_lc_repository.dart';
+import '../../../../data/repositories/po_repository.dart';
 
 final cuttingRepositoryProvider = Provider<CuttingRepository>(
   (ref) => FirestoreCuttingRepository(),
 );
+
+final manualCuttingUseCaseProvider = Provider<CreateManualCuttingUseCase>((ref) {
+  return CreateManualCuttingUseCase(
+    cuttingRepository: ref.watch(cuttingRepositoryProvider),
+    poRepository: PORepository(),
+    masterLCRepository: MasterLCRepository(),
+  );
+});
 
 class CuttingFilters {
   const CuttingFilters({this.poNo, this.from, this.to});
@@ -136,9 +147,11 @@ class CuttingFormState {
 }
 
 class CuttingFormNotifier extends StateNotifier<CuttingFormState> {
-  CuttingFormNotifier(this._repository) : super(CuttingFormState.initial());
+  CuttingFormNotifier(this._repository, this._useCase)
+      : super(CuttingFormState.initial());
 
   final CuttingRepository _repository;
+  final CreateManualCuttingUseCase _useCase;
 
   void setCutting(Cutting cutting) {
     state = state.copyWith(cutting: cutting, clearError: true);
@@ -177,18 +190,12 @@ class CuttingFormNotifier extends StateNotifier<CuttingFormState> {
     );
   }
 
-  Future<bool> save() async {
+  Future<void> resolveFromPo() async {
     final cutting = state.cutting;
-    if (cutting.voucherNo.trim().isEmpty ||
-        cutting.poNo.trim().isEmpty ||
+    if (cutting.poNo.trim().isEmpty ||
         cutting.article.trim().isEmpty ||
-        cutting.color.trim().isEmpty ||
-        cutting.cuttingQuantity <= 0) {
-      state = state.copyWith(
-        status: CuttingFormStatus.error,
-        errorMessage: 'Please complete all required fields.',
-      );
-      return false;
+        cutting.color.trim().isEmpty) {
+      return;
     }
 
     state = state.copyWith(
@@ -196,21 +203,73 @@ class CuttingFormNotifier extends StateNotifier<CuttingFormState> {
       clearError: true,
     );
 
-    try {
-      await _repository.create(cutting);
-      state = state.copyWith(status: CuttingFormStatus.success);
-      return true;
-    } on Failure catch (e) {
-      state = state.copyWith(
+    final result = await _useCase.resolve(
+      cuttingDate: cutting.cuttingDate,
+      voucherNo: cutting.voucherNo,
+      factoryName: cutting.factoryName,
+      poNo: cutting.poNo,
+      article: cutting.article,
+      color: cutting.color,
+      cuttingQuantity: cutting.cuttingQuantity,
+      entryPerson: cutting.entryPerson,
+    );
+
+    result.fold(
+      (failure) => state = state.copyWith(
         status: CuttingFormStatus.error,
-        errorMessage: e.message,
-      );
-      return false;
-    }
+        errorMessage: failure.message,
+      ),
+      (resolved) => state = state.copyWith(
+        status: CuttingFormStatus.idle,
+        cutting: cutting.copyWith(
+          voucherNo: resolved.voucherNo,
+          tagNo: resolved.tagNo,
+          company: resolved.company,
+          project: resolved.project,
+          poQuantity: resolved.poQuantity,
+        ),
+        clearError: true,
+      ),
+    );
   }
-}
+
+  Future<bool> save() async {
+    final cutting = state.cutting;
+    state = state.copyWith(
+      status: CuttingFormStatus.loading,
+      clearError: true,
+    );
+
+    final result = await _useCase.create(
+      cuttingDate: cutting.cuttingDate,
+      voucherNo: cutting.voucherNo,
+      factoryName: cutting.factoryName,
+      poNo: cutting.poNo,
+      article: cutting.article,
+      color: cutting.color,
+      cuttingQuantity: cutting.cuttingQuantity,
+      entryPerson: cutting.entryPerson,
+    );
+
+    return result.fold(
+      (failure) {
+        state = state.copyWith(
+          status: CuttingFormStatus.error,
+          errorMessage: failure.message,
+        );
+        return false;
+      },
+      (_) {
+        state = state.copyWith(status: CuttingFormStatus.success);
+        return true;
+      },
+    );
+  }}
 
 final cuttingFormProvider =
     StateNotifierProvider<CuttingFormNotifier, CuttingFormState>(
-  (ref) => CuttingFormNotifier(ref.watch(cuttingRepositoryProvider)),
+  (ref) => CuttingFormNotifier(
+        ref.watch(cuttingRepositoryProvider),
+        ref.watch(manualCuttingUseCaseProvider),
+      ),
 );

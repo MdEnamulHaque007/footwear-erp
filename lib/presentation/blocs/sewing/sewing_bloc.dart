@@ -73,7 +73,6 @@ class SewingBloc extends Bloc<SewingEvent, SewingState> {
         return item.poNo.toLowerCase().contains(normalized) ||
             item.voucherNo.toLowerCase().contains(normalized) ||
             item.tagNo.toLowerCase().contains(normalized) ||
-            item.poTagNo.toLowerCase().contains(normalized) ||
             item.article.toLowerCase().contains(normalized) ||
             item.color.toLowerCase().contains(normalized);
       }).toList();
@@ -176,7 +175,7 @@ class SewingBloc extends Bloc<SewingEvent, SewingState> {
       final cuttingQty = cuttingResult.getOrElse(() => 0);
       final total = related.fold<int>(
         0,
-        (sum, entry) => sum + entry.effectiveQuantity,
+        (sum, entry) => sum + entry.sewingQuantity,
       );
       emit(
         SewingDetailLoaded(

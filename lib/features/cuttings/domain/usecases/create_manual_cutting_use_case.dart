@@ -1,6 +1,6 @@
 import 'package:dartz/dartz.dart';
 
-import '../../../../core/failure.dart';
+import '../../core/failure.dart';
 import '../../../../data/repositories/master_lc_repository.dart';
 import '../../../../data/repositories/po_repository.dart';
 import '../../../../domain/entities/po_entity.dart';

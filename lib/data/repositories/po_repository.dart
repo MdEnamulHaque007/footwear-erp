@@ -51,6 +51,7 @@ class PORepository implements IPORepository {
     }, prefix: 'Database error');
   }
 
+  @override
   Future<Either<String, POModel?>> getPOByNo(String poNo) async {
     try {
       final snapshot = await _collection

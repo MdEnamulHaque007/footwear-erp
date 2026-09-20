@@ -24,6 +24,9 @@ class _FakePORepository implements IPORepository {
   Future<Either<String, POModel?>> byId(String id) async => const Right(null);
 
   @override
+  Future<Either<String, POModel?>> getPOByNo(String poNo) async => const Right(null);
+
+  @override
   Future<int> getMaxSl() async => 1;
 
   @override

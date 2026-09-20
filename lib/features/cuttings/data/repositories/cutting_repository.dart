@@ -25,6 +25,8 @@ abstract class CuttingRepository {
   Future<void> update(Cutting cutting);
 
   Future<void> softDelete(String docId);
+
+  Future<Either<Failure, String>> getNextVoucherNo(DateTime date);
 }
 
 class FirestoreCuttingRepository implements CuttingRepository {
@@ -111,6 +113,33 @@ class FirestoreCuttingRepository implements CuttingRepository {
       throw Failure(e.message ?? 'Firestore error', code: e.code);
     } catch (e) {
       throw Failure(e.toString());
+    }
+  }
+
+  @override
+  Future<Either<Failure, String>> getNextVoucherNo(DateTime date) async {
+    try {
+      final dateStr = DateFormat('yyyyMMdd').format(date);
+      final prefix = 'CUT-$dateStr-';
+      final snapshot = await _collection
+          .where('voucherNo', isGreaterThanOrEqualTo: prefix)
+          .where('voucherNo', isLessThan: prefix + 'ZZZ')
+          .orderBy('voucherNo', descending: true)
+          .limit(1)
+          .get();
+
+      var nextSerial = 1;
+      if (snapshot.docs.isNotEmpty) {
+        final lastVoucher = snapshot.docs.first.data()['voucherNo']?.toString() ?? '';
+        final lastSerial = int.tryParse(lastVoucher.split('-').last) ?? 0;
+        nextSerial = lastSerial + 1;
+      }
+
+      return Right('$prefix${nextSerial.toString().padLeft(3, '0')}');
+    } on FirebaseException catch (e) {
+      return Left(Failure(e.message ?? 'Failed to generate voucher', code: e.code));
+    } catch (e) {
+      return Left(Failure(e.toString()));
     }
   }
 

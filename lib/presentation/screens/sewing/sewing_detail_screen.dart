@@ -98,7 +98,7 @@ class _SewingDetailScreenState extends State<SewingDetailScreen> {
                   _row('PO No', item.poNo),
                   _row(
                     'Tag No',
-                    item.tagNo.isEmpty ? item.poTagNo : item.tagNo,
+                    item.tagNo,
                   ),
                   _row('Company', item.company),
                   _row('Project', item.project),
@@ -109,7 +109,7 @@ class _SewingDetailScreenState extends State<SewingDetailScreen> {
                   _row('Cutting Quantity', '${state.cuttingQuantity}'),
                   _row('Total Sewing Qty', '${state.totalSewingQuantity}'),
                   _row('Available Quantity', '${state.availableQuantity}'),
-                  _row('This Sewing Qty', '${item.effectiveQuantity}'),
+                  _row('This Sewing Qty', '${item.sewingQuantity}'),
                   _row(
                     'Remaining After This',
                     '${state.availableQuantity - item.effectiveQuantity}',
@@ -174,7 +174,7 @@ class _SewingDetailScreenState extends State<SewingDetailScreen> {
                 DataCell(Text('${entry.key + 1}')),
                 DataCell(Text(_date(related.sewingDate))),
                 DataCell(Text(related.voucherNo)),
-                DataCell(Text('${related.effectiveQuantity}')),
+                DataCell(Text('${related.sewingQuantity}')),
                 DataCell(Text(related.entryPerson)),
               ],
             );

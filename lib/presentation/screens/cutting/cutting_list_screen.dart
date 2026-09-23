@@ -6,6 +6,7 @@ import '../../blocs/cutting/cutting_bloc.dart';
 import '../../blocs/cutting/cutting_event.dart';
 import '../../blocs/cutting/cutting_state.dart';
 import '../../widgets/excel_column_filter_header.dart';
+import 'cutting_date_report_screen.dart';
 
 class CuttingListScreen extends StatefulWidget {
   const CuttingListScreen({super.key});
@@ -78,6 +79,14 @@ class _CuttingListScreenState extends State<CuttingListScreen> {
     context.push('/cutting/edit/${item.id}', extra: item);
   }
 
+  void _openDateWiseReport(List<CuttingEntity> items) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CuttingDateReportScreen(items: List.of(items)),
+      ),
+    );
+  }
+
   /// Confirms and dispatches the delete for [item].
   ///
   /// `dialogContext` is used for the pop so the dialog is dismissed from inside
@@ -120,6 +129,19 @@ class _CuttingListScreenState extends State<CuttingListScreen> {
       title: const Text('Cutting'),
       actions: [
         _totalQuantityBadge(),
+        BlocBuilder<CuttingBloc, CuttingState>(
+          buildWhen: (previous, current) => current is CuttingLoaded,
+          builder: (context, state) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+            child: OutlinedButton.icon(
+              onPressed: state is CuttingLoaded && state.items.isNotEmpty
+                  ? () => _openDateWiseReport(state.items)
+                  : null,
+              icon: const Icon(Icons.summarize_outlined, size: 18),
+              label: const Text('Date-wise Report'),
+            ),
+          ),
+        ),
         IconButton(
           tooltip: 'Search',
           icon: const Icon(Icons.search),

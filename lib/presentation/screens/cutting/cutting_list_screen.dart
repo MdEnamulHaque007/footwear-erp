@@ -129,19 +129,6 @@ class _CuttingListScreenState extends State<CuttingListScreen> {
       title: const Text('Cutting'),
       actions: [
         _totalQuantityBadge(),
-        BlocBuilder<CuttingBloc, CuttingState>(
-          buildWhen: (previous, current) => current is CuttingLoaded,
-          builder: (context, state) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-            child: OutlinedButton.icon(
-              onPressed: state is CuttingLoaded && state.items.isNotEmpty
-                  ? () => _openDateWiseReport(state.items)
-                  : null,
-              icon: const Icon(Icons.summarize_outlined, size: 18),
-              label: const Text('Date-wise Report'),
-            ),
-          ),
-        ),
         IconButton(
           tooltip: 'Search',
           icon: const Icon(Icons.search),
@@ -210,11 +197,22 @@ class _CuttingListScreenState extends State<CuttingListScreen> {
         if (state is CuttingLoading && state is! CuttingLoaded) {
           return const Center(child: CircularProgressIndicator());
         }
-        final items = state is CuttingLoaded
-            ? state.items.where(_matches).toList()
+        final loadedItems = state is CuttingLoaded
+            ? state.items
             : <CuttingEntity>[];
-        if (items.isEmpty) {
+        final items = loadedItems.where(_matches).toList();
+        if (loadedItems.isEmpty) {
           return const Center(child: Text('No Cutting Records'));
+        }
+        if (items.isEmpty) {
+          return Column(
+            children: [
+              _reportToolbar(loadedItems),
+              const Expanded(
+                child: Center(child: Text('No matching Cutting Records')),
+              ),
+            ],
+          );
         }
         final totalPages = (items.length / _pageSize).ceil();
         final page = _currentPage.clamp(0, totalPages - 1);
@@ -224,6 +222,7 @@ class _CuttingListScreenState extends State<CuttingListScreen> {
             .toList();
         return Column(
           children: [
+            _reportToolbar(loadedItems),
             Expanded(
               child: Scrollbar(
                 controller: verticalScroll,
@@ -376,6 +375,20 @@ class _CuttingListScreenState extends State<CuttingListScreen> {
           style: Theme.of(context).textTheme.labelMedium,
         ),
       ),
+    ),
+  );
+
+  Widget _reportToolbar(List<CuttingEntity> items) => Padding(
+    padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        FilledButton.icon(
+          onPressed: () => _openDateWiseReport(items),
+          icon: const Icon(Icons.summarize_outlined, size: 18),
+          label: const Text('View Date-wise Report'),
+        ),
+      ],
     ),
   );
 

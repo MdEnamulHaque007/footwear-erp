@@ -1,3 +1,17 @@
+/// ===========================================================================
+/// বাংলা ডকুমেন্টেশন কমেন্ট — বিস্তারিত বোঝার জন্য যোগ করা হয়েছে
+/// ===========================================================================
+/// এই ফাইলটি অ্যাপ্লিকেশনের এন্ট্রি পয়েন্ট (Entry Point)।
+/// এখানে Firebase ইনিশিয়ালাইজেশন, Hive লোকাল স্টোরেজ সেটআপ,
+/// Dependency Injection (GetIt) কনফিগারেশন এবং অ্যাপ চালু করার মূল কাজ করা হয়।
+/// MyApp ক্লাসটি MaterialApp.router ব্যবহার করে থিম, লোকালাইজেশন এবং রাউটিং পরিচালনা করে।
+///
+/// প্রজেক্ট  : Footwear ERP System (জুতার উৎপাদন ব্যবস্থাপনা সফটওয়্যার)
+/// আর্কিটেকচার: Clean Architecture (Domain → Data → Presentation)
+/// টেক স্ট্যাক: Flutter + Firebase (Auth/Firestore/Storage) + BLoC + GetIt + GoRouter
+/// নোট       : কোনো কোড লজিক পরিবর্তন করা হয়নি, শুধু কমেন্ট যোগ করা হয়েছে।
+/// ===========================================================================
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -19,17 +33,27 @@ import 'presentation/blocs/settings/settings_event.dart';
 import 'presentation/blocs/settings/settings_state.dart';
 import 'presentation/routes/app_routes.dart';
 
+/// অ্যাপের মূল এন্ট্রি পয়েন্ট ফাংশন।
+/// এখানে সব ইনিশিয়ালাইজেশন কাজ সম্পন্ন করে অ্যাপ চালু করা হয়।
 Future<void> main() async {
+  // Flutter বাইন্ডিং নিশ্চিত করা — প্লাগইন ও অ্যাসিঙ্ক অপারেশনের আগে জরুরি
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Firebase ইনিশিয়ালাইজেশন ব্যর্থ হলে এরর মেসেজ রাখার জন্য
   String? firebaseInitializationError;
+
   try {
+    // Firebase অ্যাপ ইনিশিয়ালাইজ — প্ল্যাটফর্ম অনুসারে DefaultFirebaseOptions ব্যবহার
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
   } catch (error) {
+    // ব্যর্থ হলে এরর সেভ ও কনসোলে প্রিন্ট
     firebaseInitializationError = error.toString();
     debugPrint('Firebase initialization failed: $error');
   }
+
+  // ওয়েব হলে Auth persistence LOCAL করা যাতে পেজ রিফ্রেশে সেশন না হারায়
   if (firebaseInitializationError == null && kIsWeb) {
     try {
       await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
@@ -37,6 +61,8 @@ Future<void> main() async {
       debugPrint('Unable to set web auth persistence: $error');
     }
   }
+
+  // ডেভেলপমেন্ট এমুলেটর ব্যবহার করতে চাইলে (DevConfig থেকে কন্ট্রোল)
   if (firebaseInitializationError == null && DevConfig.useFirebaseEmulator) {
     // 🔴 Debug-only (see `DevConfig.useFirebaseEmulator`): point Auth and
     // Firestore at the local emulator suite without touching production data.
@@ -58,19 +84,31 @@ Future<void> main() async {
       debugPrint('Unable to connect to Firebase emulators: $error');
     }
   }
+
+  // Hive লোকাল স্টোরেজ ইনিশিয়ালাইজ (ক্যাশিং ও অফলাইন ডেটার জন্য)
   await Hive.initFlutter();
+
+  // GetIt DI কনটেইনার সেটআপ — সব ডিপেন্ডেন্সি রেজিস্টার করা হয়
   await setupLocator();
+
+  // অ্যাপ সেটিংস লোড ইভেন্ট পাঠানো (থিম, ভাষা ইত্যাদি)
   GetIt.I<SettingsBloc>().add(const LoadAppSettings());
+
+  // অ্যাপ রান করা
   runApp(MyApp(firebaseInitializationError: firebaseInitializationError));
 }
 
+/// মূল অ্যাপ্লিকেশন উইজেট।
+/// Firebase এরর থাকলে এরর স্ক্রিন, নইলে পুরো ERP অ্যাপ চালু করে।
 class MyApp extends StatelessWidget {
   const MyApp({super.key, this.firebaseInitializationError});
 
+  /// Firebase ইনিশিয়ালাইজেশন ব্যর্থ হলে এরর মেসেজ এখানে থাকে
   final String? firebaseInitializationError;
 
   @override
   Widget build(BuildContext context) {
+    // Firebase ব্যর্থ হলে শুধু এরর দেখানোর জন্য সাধারণ MaterialApp
     if (firebaseInitializationError != null) {
       return MaterialApp(
         title: AppConstants.appName,
@@ -85,6 +123,8 @@ class MyApp extends StatelessWidget {
         ),
       );
     }
+
+    // সফল কেসে AuthBloc ও SettingsBloc প্রোভাইড করে MaterialApp.router
     return MultiBlocProvider(
       providers: [
         BlocProvider.value(value: GetIt.I<AuthBloc>()),
@@ -92,6 +132,7 @@ class MyApp extends StatelessWidget {
       ],
       child: BlocBuilder<SettingsBloc, SettingsState>(
         builder: (context, _) {
+          // বর্তমান ইউজার সেটিংস থেকে থিম/ভাষা/ফন্ট নেওয়া
           final settings = context.read<SettingsBloc>().currentAppSettings;
           return MaterialApp.router(
             title: AppConstants.appName,
@@ -99,18 +140,21 @@ class MyApp extends StatelessWidget {
             darkTheme: AppTheme.darkTheme,
             themeMode: _themeMode(settings.themeMode),
             locale: _locale(settings.languageCode),
+            // সমর্থিত ভাষা: ইংরেজি, বাংলা, চীনা
             supportedLocales: const [Locale('en'), Locale('bn'), Locale('zh')],
             localizationsDelegates: const [
               GlobalMaterialLocalizations.delegate,
               GlobalWidgetsLocalizations.delegate,
               GlobalCupertinoLocalizations.delegate,
             ],
+            // ফন্ট সাইজ অনুযায়ী টেক্সট স্কেল
             builder: (context, child) => MediaQuery(
               data: MediaQuery.of(context).copyWith(
                 textScaler: TextScaler.linear(_textScale(settings.fontSize)),
               ),
               child: child ?? const SizedBox.shrink(),
             ),
+            // GoRouter দিয়ে নেভিগেশন
             routerConfig: AppRoutes.router,
             debugShowCheckedModeBanner: false,
           );
@@ -119,18 +163,21 @@ class MyApp extends StatelessWidget {
     );
   }
 
+  /// স্ট্রিং ভ্যালু থেকে ThemeMode নির্ধারণ
   ThemeMode _themeMode(String value) => switch (value) {
     'light' => ThemeMode.light,
     'dark' => ThemeMode.dark,
     _ => ThemeMode.system,
   };
 
+  /// ভাষা কোড থেকে Locale অবজেক্ট তৈরি
   Locale _locale(String languageCode) => switch (languageCode) {
     'bn' => const Locale('bn'),
     'zh' => const Locale('zh'),
     _ => const Locale('en'),
   };
 
+  /// ফন্ট সাইজ স্ট্রিং থেকে টেক্সট স্কেল ফ্যাক্টর
   double _textScale(String value) => switch (value) {
     'small' => 0.9,
     'large' => 1.15,

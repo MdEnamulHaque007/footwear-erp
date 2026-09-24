@@ -19,6 +19,26 @@ Production management software for footwear manufacturing.
 - Admin user, role, and permission management
 - Colorful dashboard and module navigation
 
+## ERP workflow
+
+The current application follows PO lines through the production and shipment stages. Each stage records a PO number, article, color, quantity, date, company and factory where applicable.
+
+```mermaid
+flowchart TD
+    LC["Master LC"] --> PO["Purchase Order lines"]
+    PO --> CUT["Cutting"]
+    CUT --> SEW["Sewing"]
+    SEW --> LAST["Production / Lasting"]
+    LAST --> ISSUE["FG Issue"]
+    ISSUE --> EXP["Export / Shipment"]
+```
+
+- **Master LC → PO:** A PO can contain multiple article and color lines. Its allocated quantity and value are checked against the linked Master LC.
+- **PO → Cutting:** Cutting may exceed the PO quantity; track the excess separately instead of silently treating it as available PO capacity.
+- **Cutting → Sewing → Lasting:** Sewing is limited by available Cutting; Lasting is limited by available Sewing for the matching PO, article and color.
+- **Lasting → FG Issue → Export:** FG Issue is limited by available Lasting; Export is limited by available issued goods. The current app represents finished goods through its Issue stage; a separate FG receipt, reservation and shipment ledger belongs to the proposed Customs ERP workflow.
+- **Scope of this chart:** It describes the current repository's order-to-export modules. Import clearance, bonded raw materials and customs filing are planned separately and are not shown as implemented features.
+
 ## Quick Start
 
 ### Prerequisites

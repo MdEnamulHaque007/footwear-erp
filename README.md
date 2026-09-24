@@ -90,3 +90,14 @@ signing keys.
 ## Contact
 
 [Md Enamul Haque](https://github.com/MdEnamulHaque007)
+
+
+## বাংলা ডকুমেন্টেশন / Bengali Documentation
+
+পুরো প্রজেক্টের প্রতিটি `.dart` ফাইলে বিস্তারিত **বাংলা কমেন্ট** যোগ করা হয়েছে।  
+কোনো কোড লজিক পরিবর্তন করা হয়নি।
+
+- প্রতিটি ফাইলের উপরে ফাইলের উদ্দেশ্য বাংলায় লেখা আছে।
+- বিস্তারিত গাইড দেখুন: [PROJECT_GUIDE_BN.md](PROJECT_GUIDE_BN.md)
+
+This helps any Bengali-speaking developer understand the full architecture and code by reading comments only.

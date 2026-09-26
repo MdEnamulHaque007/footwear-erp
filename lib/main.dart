@@ -1,17 +1,12 @@
-/// ===========================================================================
-/// বাংলা ডকুমেন্টেশন কমেন্ট — বিস্তারিত বোঝার জন্য যোগ করা হয়েছে
-/// ===========================================================================
-/// এই ফাইলটি অ্যাপ্লিকেশনের এন্ট্রি পয়েন্ট (Entry Point)।
-/// এখানে Firebase ইনিশিয়ালাইজেশন, Hive লোকাল স্টোরেজ সেটআপ,
-/// Dependency Injection (GetIt) কনফিগারেশন এবং অ্যাপ চালু করার মূল কাজ করা হয়।
-/// MyApp ক্লাসটি MaterialApp.router ব্যবহার করে থিম, লোকালাইজেশন এবং রাউটিং পরিচালনা করে।
-///
-/// প্রজেক্ট  : Footwear ERP System (জুতার উৎপাদন ব্যবস্থাপনা সফটওয়্যার)
-/// আর্কিটেকচার: Clean Architecture (Domain → Data → Presentation)
-/// টেক স্ট্যাক: Flutter + Firebase (Auth/Firestore/Storage) + BLoC + GetIt + GoRouter
-/// নোট       : কোনো কোড লজিক পরিবর্তন করা হয়নি, শুধু কমেন্ট যোগ করা হয়েছে।
-/// ===========================================================================
-
+/// ============================================================================
+/// ফাইল: lib/main.dart
+/// স্তর: Application Entry | মডিউল: App Bootstrap
+/// উদ্দেশ্য: Flutter binding, Firebase, dependency injection ও মূল application widget চালু করে।
+/// প্রধান অংশ: MyApp
+/// ডেটা প্রবাহ: UI → BLoC/Use Case → Repository → Firebase; এই ফাইলটি তার নির্ধারিত স্তরের দায়িত্বই পালন করে।
+/// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
+/// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
+/// ============================================================================
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';

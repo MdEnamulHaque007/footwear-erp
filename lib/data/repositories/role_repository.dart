@@ -1,3 +1,12 @@
+/// ============================================================================
+/// ফাইল: lib/data/repositories/role_repository.dart
+/// স্তর: Data Repository | মডিউল: Role Management
+/// উদ্দেশ্য: Role Management data query, transaction, pagination ও persistence বাস্তবায়ন করে।
+/// প্রধান অংশ: RoleRepository
+/// ডেটা প্রবাহ: UI → BLoC/Use Case → Repository → Firebase; এই ফাইলটি তার নির্ধারিত স্তরের দায়িত্বই পালন করে।
+/// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
+/// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
+/// ============================================================================
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
 import '../../core/constants/app_constants.dart';

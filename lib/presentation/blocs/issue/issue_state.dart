@@ -1,3 +1,12 @@
+/// ============================================================================
+/// ফাইল: lib/presentation/blocs/issue/issue_state.dart
+/// স্তর: Presentation BLoC | মডিউল: Finished Goods Issue
+/// উদ্দেশ্য: Finished Goods Issue screen-এর event গ্রহণ করে state তৈরি এবং UI update নিয়ন্ত্রণ করে।
+/// প্রধান অংশ: IssueState, IssueInitial, IssueLoading, IssueLoaded, IssueSearchLoaded, IssueDetailLoaded, IssueError, IssueSuccess, PONoListLoaded, POSelected
+/// ডেটা প্রবাহ: UI → BLoC/Use Case → Repository → Firebase; এই ফাইলটি তার নির্ধারিত স্তরের দায়িত্বই পালন করে।
+/// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
+/// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
+/// ============================================================================
 import '../../../domain/entities/issue_entity.dart';
 import '../../../domain/entities/po_entity.dart';
 

@@ -1,3 +1,12 @@
+/// ============================================================================
+/// ফাইল: lib/firebase_options.dart
+/// স্তর: Application | মডিউল: ERP Common
+/// উদ্দেশ্য: Firebase Options component-এর নির্ধারিত application responsibility বাস্তবায়ন করে।
+/// প্রধান অংশ: DefaultFirebaseOptions
+/// ডেটা প্রবাহ: UI → BLoC/Use Case → Repository → Firebase; এই ফাইলটি তার নির্ধারিত স্তরের দায়িত্বই পালন করে।
+/// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
+/// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
+/// ============================================================================
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;

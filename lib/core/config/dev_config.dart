@@ -1,14 +1,12 @@
-/// ===========================================================================
-/// বাংলা ডকুমেন্টেশন কমেন্ট — বিস্তারিত বোঝার জন্য যোগ করা হয়েছে
-/// ===========================================================================
-/// Core লেয়ারের ফাইল (কনস্ট্যান্ট, থিম, ইউটিলিটি, সার্ভিস)। ফাইল: core/config/dev_config.dart
-///
-/// প্রজেক্ট  : Footwear ERP System (জুতার উৎপাদন ব্যবস্থাপনা সফটওয়্যার)
-/// আর্কিটেকচার: Clean Architecture (Domain → Data → Presentation)
-/// টেক স্ট্যাক: Flutter + Firebase (Auth/Firestore/Storage) + BLoC + GetIt + GoRouter
-/// নোট       : কোনো কোড লজিক পরিবর্তন করা হয়নি, শুধু কমেন্ট যোগ করা হয়েছে।
-/// ===========================================================================
-
+/// ============================================================================
+/// ফাইল: lib/core/config/dev_config.dart
+/// স্তর: Core | মডিউল: ERP Common
+/// উদ্দেশ্য: Dev Config সম্পর্কিত shared configuration, utility, service বা application-wide behavior প্রদান করে।
+/// প্রধান অংশ: DevConfig
+/// ডেটা প্রবাহ: UI → BLoC/Use Case → Repository → Firebase; এই ফাইলটি তার নির্ধারিত স্তরের দায়িত্বই পালন করে।
+/// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
+/// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
+/// ============================================================================
 /// Development configuration for Firebase emulators and debug flags.
 ///
 /// This file controls whether the app connects to local Firebase emulators

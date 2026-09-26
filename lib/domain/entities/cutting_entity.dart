@@ -1,3 +1,12 @@
+/// ============================================================================
+/// ফাইল: lib/domain/entities/cutting_entity.dart
+/// স্তর: Domain Entity | মডিউল: Cutting
+/// উদ্দেশ্য: Cutting মডিউলের framework-independent business data ও হিসাবযোগ্য property সংজ্ঞায়িত করে।
+/// প্রধান অংশ: CuttingLine, CuttingEntity
+/// ডেটা প্রবাহ: UI → BLoC/Use Case → Repository → Firebase; এই ফাইলটি তার নির্ধারিত স্তরের দায়িত্বই পালন করে।
+/// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
+/// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
+/// ============================================================================
 /// A distinct `article` + `color` pair read from the PO line items.
 ///
 /// Keeps the Cutting form's Article → Color cascading in sync with the

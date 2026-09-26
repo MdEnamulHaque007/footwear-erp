@@ -1,3 +1,12 @@
+/// ============================================================================
+/// ফাইল: lib/data/models/master_lc/master_lc_model.dart
+/// স্তর: Data Model | মডিউল: Master LC
+/// উদ্দেশ্য: Master LC entity এবং Firestore/JSON data-এর মধ্যে নিরাপদ রূপান্তর করে।
+/// প্রধান অংশ: MasterLCModel
+/// ডেটা প্রবাহ: UI → BLoC/Use Case → Repository → Firebase; এই ফাইলটি তার নির্ধারিত স্তরের দায়িত্বই পালন করে।
+/// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
+/// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
+/// ============================================================================
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../domain/entities/master_lc_entity.dart';
 

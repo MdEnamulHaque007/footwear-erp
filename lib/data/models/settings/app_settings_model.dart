@@ -1,3 +1,12 @@
+/// ============================================================================
+/// ফাইল: lib/data/models/settings/app_settings_model.dart
+/// স্তর: Data Model | মডিউল: Settings
+/// উদ্দেশ্য: Settings entity এবং Firestore/JSON data-এর মধ্যে নিরাপদ রূপান্তর করে।
+/// প্রধান অংশ: AppSettingsModel
+/// ডেটা প্রবাহ: UI → BLoC/Use Case → Repository → Firebase; এই ফাইলটি তার নির্ধারিত স্তরের দায়িত্বই পালন করে।
+/// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
+/// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
+/// ============================================================================
 import '../../../domain/entities/settings/app_settings_entity.dart';
 
 class AppSettingsModel extends AppSettingsEntity {

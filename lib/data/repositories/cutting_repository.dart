@@ -168,7 +168,7 @@ class CuttingRepository implements ICuttingRepository {
       }
     }
 
-    return items.map((item) {
+    return Future.wait(items.map((item) async {
       // Continue enrichment even when tag/quantity already exist because
       // legacy records may still be missing company/project.
       final basePo = poByNo[item.poNo];
@@ -199,7 +199,7 @@ class CuttingRepository implements ICuttingRepository {
           poQuantity: poQuantity,
         ),
       );
-    }).toList();
+    }));
   }
 
   Future<POModel> _enrichPOHeaderFromMasterLc(POModel po) async {

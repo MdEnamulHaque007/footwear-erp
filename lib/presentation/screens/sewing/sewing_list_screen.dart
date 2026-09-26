@@ -59,7 +59,6 @@ class _SewingListScreenState extends State<SewingListScreen> {
         item.poNo.toLowerCase().contains(value) ||
         item.voucherNo.toLowerCase().contains(value) ||
         item.tagNo.toLowerCase().contains(value) ||
-        item.poTagNo.toLowerCase().contains(value) ||
         item.article.toLowerCase().contains(value) ||
         item.color.toLowerCase().contains(value);
     return matchesSearch &&
@@ -68,10 +67,10 @@ class _SewingListScreenState extends State<SewingListScreen> {
           'date': _date(item.sewingDate),
           'voucher': item.voucherNo,
           'po': item.poNo,
-          'tag': item.tagNo.isEmpty ? item.poTagNo : item.tagNo,
+          'tag': item.tagNo,
           'article': item.article,
           'color': item.color,
-          'quantity': item.effectiveQuantity,
+          'quantity': item.sewingQuantity,
           'entry': item.entryPerson,
         });
   }
@@ -180,7 +179,7 @@ class _SewingListScreenState extends State<SewingListScreen> {
       final total = state is SewingLoaded
           ? state.items
                 .where(_matches)
-                .fold<int>(0, (sum, item) => sum + item.effectiveQuantity)
+                .fold<int>(0, (sum, item) => sum + item.sewingQuantity)
           : 0;
       return _totalBadge(total);
     },
@@ -246,11 +245,11 @@ class _SewingListScreenState extends State<SewingListScreen> {
                     DataCell(Text(item.voucherNo)),
                     DataCell(Text(item.poNo)),
                     DataCell(
-                      Text(item.tagNo.isEmpty ? item.poTagNo : item.tagNo),
+                      Text(item.tagNo),
                     ),
                     DataCell(Text(item.article)),
                     DataCell(Text(item.color)),
-                    DataCell(Text('${item.effectiveQuantity}')),
+                    DataCell(Text('${item.sewingQuantity}')),
                     DataCell(Text(item.entryPerson)),
                     DataCell(
                       Row(

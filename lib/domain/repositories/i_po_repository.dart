@@ -6,6 +6,7 @@ abstract interface class IPORepository {
   Future<Either<String, List<POModel>>> getPOList({int page = 0, int limit = 20});
   Future<Either<String, List<POModel>>> byTag(String tag);
   Future<Either<String, POModel?>> byId(String id);
+  Future<Either<String, POModel?>> getPOByNo(String poNo);
 
   /// Next available serial number (max stored `sl` + 1, or 1 when empty).
   ///

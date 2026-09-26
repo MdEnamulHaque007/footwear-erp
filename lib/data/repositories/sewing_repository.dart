@@ -46,10 +46,10 @@ class SewingRepository implements ISewingRepository {
   }
 
   @override
-  Future<Either<String, List<SewingModel>>> byPoTag(String poTagNo) async {
+  Future<Either<String, List<SewingModel>>> byTagNo(String tagNo) async {
     try {
       final snapshot = await _collection
-          .where('tagNo', isEqualTo: poTagNo)
+          .where('tagNo', isEqualTo: tagNo)
           .orderBy('sl')
           .get();
       return Right(snapshot.docs.map(SewingModel.fromSnapshot).toList());
@@ -220,7 +220,7 @@ class SewingRepository implements ISewingRepository {
 
       // 3. Validate against the availability snapshot.
       final available = cuttingQty - sewingQty;
-      final quantity = item.effectiveQuantity;
+      final quantity = item.sewingQuantity;
       if (quantity <= 0) {
         return const Left('Quantity must be greater than zero');
       }
@@ -343,11 +343,11 @@ class SewingRepository implements ISewingRepository {
 
   @override
   Future<int> getCumulativeSewingQuantity({
-    required String poTagNo,
+    required String tagNo,
     required DateTime upToDate,
   }) async {
     final snapshot = await _collection
-        .where('tagNo', isEqualTo: poTagNo)
+        .where('tagNo', isEqualTo: tagNo)
         .where('sewingDate', isLessThanOrEqualTo: Timestamp.fromDate(upToDate))
         .get();
     return snapshot.docs.fold<int>(

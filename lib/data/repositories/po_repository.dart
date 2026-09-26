@@ -52,6 +52,25 @@ class PORepository implements IPORepository {
   }
 
   @override
+  Future<Either<String, POModel?>> getPOByNo(String poNo) async {
+    try {
+      final snapshot = await _collection
+          .where('poNo', isEqualTo: poNo.trim())
+          .limit(1)
+          .get();
+      return Right(
+        snapshot.docs.isEmpty
+            ? null
+            : POModel.fromSnapshot(snapshot.docs.first),
+      );
+    } on FirebaseException catch (e) {
+      return Left('Database error: ${e.message}');
+    } catch (_) {
+      return const Left('An unexpected error occurred');
+    }
+  }
+
+  @override
   Future<Either<String, POModel?>> byId(String id) async {
     try {
       final snapshot = await _collection.doc(id).get();

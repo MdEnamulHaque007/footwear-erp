@@ -27,7 +27,7 @@ class ProductionLine {
 /// that date. `tagNo` is the single source of truth; `poTagNo` is only a
 /// legacy alias retained for backward compatibility.
 class IssueEntity {
-  const IssueEntity({
+  IssueEntity({
     this.id,
     required this.sl,
     required this.voucherNo,

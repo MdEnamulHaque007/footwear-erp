@@ -98,6 +98,7 @@ import '../screens/settings/about_screen.dart';
 import 'route_constants.dart';
 import 'route_guard.dart';
 import 'home_navigation_shell.dart';
+import '../../features/cuttings/cutting_routes.dart';
 
 class AppRoutes {
   static final router = GoRouter(
@@ -109,6 +110,7 @@ class AppRoutes {
       ShellRoute(
         builder: (_, state, child) => HomeNavigationShell(location: state.uri.path, child: child),
         routes: [
+          ...cuttingRoutes,
           GoRoute(path: RouteConstants.dashboard, builder: (_, _) => const DashboardScreen()),
           GoRoute(path: RouteConstants.timelapseDashboard, name: 'timelapse-dashboard', builder: (_, _) => BlocProvider(create: (_) => GetIt.I<TimelapseBloc>(), child: const TimelapseDashboardScreen())),
           GoRoute(path: RouteConstants.login, builder: (_, _) => const LoginScreen()),

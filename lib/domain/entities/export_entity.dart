@@ -35,7 +35,7 @@ class IssueLine {
 /// that date. `tagNo` is the single source of truth; `poTagNo` is only a
 /// legacy alias retained for backward compatibility.
 class ExportEntity {
-  const ExportEntity({
+  ExportEntity({
     this.id,
     required this.sl,
     required this.voucherNo,

@@ -17,7 +17,7 @@ abstract interface class ISewingRepository {
     int page = 0,
     int limit = 20,
   });
-  Future<Either<String, List<SewingModel>>> byPoTag(String poTagNo);
+  Future<Either<String, List<SewingModel>>> byTagNo(String tagNo);
   Future<Either<String, SewingModel?>> byId(String id);
   Future<Either<String, List<SewingModel>>> byLine({
     required String poNo,
@@ -69,7 +69,7 @@ abstract interface class ISewingRepository {
   /// Cumulative Sewing quantity for a PO tag up to [upToDate].
   /// Kept for the downstream production validation chain.
   Future<int> getCumulativeSewingQuantity({
-    required String poTagNo,
+    required String tagNo,
     required DateTime upToDate,
   });
 }

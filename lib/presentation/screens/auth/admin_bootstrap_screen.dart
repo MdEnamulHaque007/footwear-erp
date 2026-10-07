@@ -27,10 +27,8 @@ import '../../routes/route_constants.dart';
 /// rule denies it and the account can never authorise itself. This screen
 /// writes that missing profile as `admin`.
 ///
-/// The backing Firestore rule permits the write only while no admin profile
-/// exists, so this is a genuine one-time initial-setup action — once an admin
-/// exists the write is rejected and the screen explains that an existing admin
-/// must grant access instead.
+/// The server requires the project-owner-issued erpBootstrap claim and atomically
+/// claims the initial setup once. Existing admins grant subsequent access.
 class AdminBootstrapScreen extends StatefulWidget {
   const AdminBootstrapScreen({super.key});
 
@@ -137,8 +135,8 @@ class _AdminBootstrapScreenState extends State<AdminBootstrapScreen> {
         const SizedBox(height: 8),
         Text(
           'This account is signed in but has no profile document, so no data '
-          'can be read or written yet. Creating the administrator profile '
-          'grants full access.',
+          'can be read or written yet. Only an account authorized by the Firebase project owner can create the administrator profile. '
+          'Contact an existing administrator if initial setup is already complete.',
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodyMedium,
         ),

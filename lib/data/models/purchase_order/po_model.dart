@@ -8,6 +8,7 @@
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../../../domain/entities/po_entity.dart';
 
 class POLineItemModel extends POLineItemEntity {
@@ -22,10 +23,14 @@ class POLineItemModel extends POLineItemEntity {
     article: _string(data['article'] ?? data['articleNo']),
     color: _string(data['color'] ?? data['colour']),
     poQuantity: _number(data['poQuantity'] ?? data['quantity']),
-    unitPrice: (data['unitPrice'] as num? ?? 0).toDouble(),
+    unitPrice: _decimal(data['unitPrice']),
   );
 
   static String _string(Object? value) => value?.toString().trim() ?? '';
+  static double _decimal(Object? value) => value is num
+      ? value.toDouble()
+      : double.tryParse(value?.toString().trim() ?? '') ?? 0;
+
   static int _number(Object? value) => value is num
       ? value.toInt()
       : int.tryParse(value?.toString().trim() ?? '') ?? 0;
@@ -98,21 +103,21 @@ class POModel extends POEntity {
         : <POLineItemModel>[];
     return POModel(
       id: s.id,
-      sl: (data['sl'] as num? ?? 0).toInt(),
+      sl: POLineItemModel._number(data['sl']),
       poDate: _date(data['poDate']) ?? DateTime.now(),
-      tagNo: data['tagNo'] as String? ?? '',
-      company: data['company'] as String? ?? '',
-      project: data['project'] as String? ?? '',
-      brand: data['brand'] as String? ?? '',
-      poNo: data['poNo'] as String? ?? '',
-      entryPerson: data['entryPerson'] as String? ?? '',
+      tagNo: POLineItemModel._string(data['tagNo']),
+      company: POLineItemModel._string(data['company']),
+      project: POLineItemModel._string(data['project']),
+      brand: POLineItemModel._string(data['brand']),
+      poNo: POLineItemModel._string(data['poNo']),
+      entryPerson: POLineItemModel._string(data['entryPerson']),
       lineItems: items,
-      article: data['article'] as String? ?? '',
-      color: data['color'] as String? ?? '',
+      article: POLineItemModel._string(data['article']),
+      color: POLineItemModel._string(data['color']),
       poQuantity: POLineItemModel._number(
         data['poQuantity'] ?? data['quantity'],
       ),
-      unitPrice: (data['unitPrice'] as num? ?? 0).toDouble(),
+      unitPrice: POLineItemModel._decimal(data['unitPrice']),
       createdAt: _date(data['createdAt']),
       updatedAt: _date(data['updatedAt']),
     );
@@ -149,5 +154,7 @@ class POModel extends POEntity {
       ? value.toDate()
       : value is DateTime
       ? value
+      : value is String
+      ? DateTime.tryParse(value)
       : null;
 }

@@ -8,6 +8,7 @@
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../../../domain/entities/sewing_entity.dart';
 
 class SewingModel extends SewingEntity {
@@ -65,7 +66,9 @@ class SewingModel extends SewingEntity {
   factory SewingModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> s) {
     final data = s.data() ?? {};
     final primaryTagNo = _string(data['tagNo']);
-    final tagNo = primaryTagNo.isNotEmpty ? primaryTagNo : _string(data['poTagNo']);
+    final tagNo = primaryTagNo.isNotEmpty
+        ? primaryTagNo
+        : _string(data['poTagNo']);
     final sewingQuantity = _int(data['sewingQuantity'] ?? data['quantity']);
     return SewingModel(
       id: s.id,
@@ -93,6 +96,12 @@ class SewingModel extends SewingEntity {
   }
 
   Map<String, dynamic> toFirestore() => {
+    'sl': sl,
+    'company': company,
+    'project': project,
+    'cuttingQuantity': cuttingQuantity,
+    'quantity': effectiveQuantity,
+
     'voucherNo': voucherNo,
     'sewingDate': Timestamp.fromDate(sewingDate),
     'poNo': poNo,

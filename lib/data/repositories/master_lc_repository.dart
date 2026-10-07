@@ -7,8 +7,13 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../core/services/firebase/firestore_query_paging.dart';
 import '../../core/services/activity/activity_log_service.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../core/services/firebase/firebase_cloud_function_service.dart';
+
 import 'package:dartz/dartz.dart';
 
 import '../../core/constants/app_constants.dart';
@@ -161,7 +166,7 @@ class MasterLCRepository implements IMasterLCRepository {
       documentId: '',
       body: () async {
         try {
-          final snapshot = await _collection.limit(1000).get();
+          final snapshot = await _collection.getAll();
           final projects =
               snapshot.docs
                   .map((doc) => doc.data()['project']?.toString().trim() ?? '')
@@ -187,7 +192,7 @@ class MasterLCRepository implements IMasterLCRepository {
       documentId: '',
       body: () async {
         try {
-          final snapshot = await _collection.limit(1000).get();
+          final snapshot = await _collection.getAll();
           final companies =
               snapshot.docs
                   .map((doc) => doc.data()['company']?.toString().trim() ?? '')
@@ -213,131 +218,33 @@ class MasterLCRepository implements IMasterLCRepository {
   Future<Either<String, void>> updateWithTransaction(MasterLCEntity item) =>
       _writeWithTransaction(item, isUpdate: true);
 
-  /// Atomic write.
-  ///
-  /// Master LC is the root of the workflow chain, so it has no upstream balance
-  /// to re-check; the transaction guarantees the document is created/updated
-  /// atomically and that an update cannot resurrect a concurrently deleted
-  /// record.
+  /// Authorization, quantity/date checks and writes run in one server transaction.
   Future<Either<String, void>> _writeWithTransaction(
     MasterLCEntity item, {
     required bool isUpdate,
   }) async {
-    final ref = isUpdate && item.id != null
-        ? _collection.doc(item.id)
-        : _collection.doc();
-    try {
-      final data = MasterLCModel.fromEntity(item).toFirestore();
-      data['id'] = ref.id;
-      await _db.runTransaction<void>((transaction) async {
-        if (isUpdate) {
-          final snapshot = await transaction.get(ref);
-          if (!snapshot.exists) {
-            throw const _MasterLCValidationException(
-              'Master LC no longer exists',
-            );
-          }
-          // The Sl. is immutable once assigned: keep whatever is persisted.
-          data['sl'] = _int(snapshot.data()?['sl']);
-          transaction.update(ref, data);
-          return;
-        }
-
-        // Create path: assign the next Sl. atomically.
-        //
-        // Firestore has no native auto-increment, so a counter document is
-        // incremented inside the transaction. Firestore re-runs the transaction
-        // on conflict, which makes the read-increment-write sequence atomic:
-        // two concurrent creates can never receive the same Sl.
-        final counterSnapshot = await transaction.get(_counterDoc);
-        final stored = counterSnapshot.data()?['value'];
-        var lastAssigned = stored is num ? stored.toInt() : 0;
-
-        // Guard against records created before the counter existed.
-        final latest = await _collection
-            .orderBy('sl', descending: true)
-            .limit(1)
-            .get();
-        final maxStored = latest.docs.isEmpty
-            ? 0
-            : _int(latest.docs.first.data()['sl']);
-        if (maxStored > lastAssigned) lastAssigned = maxStored;
-
-        final nextSl = lastAssigned + 1;
-        data['sl'] = nextSl;
-        transaction.set(ref, data);
-        transaction.set(_counterDoc, {'value': nextSl});
-      });
-      return const Right(null);
-    } on _MasterLCValidationException catch (e) {
-      return Left(e.message);
-    } on FirebaseException catch (e) {
-      return Left(
-        '${isUpdate ? 'Failed to update' : 'Failed to create'}: ${e.message}',
-      );
-    } catch (_) {
-      return const Left('An unexpected error occurred');
+    if (isUpdate && (item.id == null || item.id!.isEmpty)) {
+      return const Left('Record ID is required for update');
     }
+    final id = isUpdate ? item.id! : _collection.doc().id;
+    return FirebaseCloudFunctionService.instance.mutate(
+      collection: 'master_lc',
+      action: isUpdate ? 'update' : 'create',
+      id: id,
+      data: MasterLCModel.fromEntity(item).toFirestore(),
+    );
   }
 
   @override
-  Future<Either<String, void>> createMasterLC(MasterLCEntity item) async {
-    try {
-      final ref = _collection.doc();
-      final data = MasterLCModel.fromEntity(item).toFirestore();
-      data['id'] = ref.id;
-      await ref.set(data);
-      return const Right(null);
-    } on FirebaseException catch (e) {
-      return Left('Failed to create: ${e.message}');
-    } catch (e) {
-      return const Left('An unexpected error occurred');
-    }
-  }
+  Future<Either<String, void>> createMasterLC(MasterLCEntity item) =>
+      _writeWithTransaction(item, isUpdate: false);
 
   @override
-  Future<Either<String, void>> update(MasterLCEntity item) async {
-    try {
-      await _collection
-          .doc(item.id)
-          .update(
-            MasterLCModel(
-              sl: item.sl,
-              masterLcDate: item.masterLcDate,
-              tagNo: item.tagNo,
-              project: item.project,
-              company: item.company,
-              scNo: item.scNo,
-              lcNo: item.lcNo,
-              ttNo: item.ttNo,
-              masterLcQuantity: item.masterLcQuantity,
-              masterLcValue: item.masterLcValue,
-            ).toFirestore(),
-          );
-      return const Right(null);
-    } on FirebaseException catch (e) {
-      return Left('Failed to update: ${e.message}');
-    } catch (e) {
-      return const Left('An unexpected error occurred');
-    }
-  }
+  Future<Either<String, void>> update(MasterLCEntity item) =>
+      _writeWithTransaction(item, isUpdate: true);
 
   @override
-  Future<Either<String, void>> delete(String id) async {
-    try {
-      await _collection.doc(id).delete();
-      return const Right(null);
-    } on FirebaseException catch (e) {
-      return Left('Failed to delete: ${e.message}');
-    } catch (e) {
-      return const Left('An unexpected error occurred');
-    }
-  }
-}
-
-/// Internal marker so a failed transaction validation is surfaced to the user
-/// verbatim instead of being wrapped in a generic Firestore error message.
-class _MasterLCValidationException implements Exception {
-  const _MasterLCValidationException(this.message);
-  final String message;
+  Future<Either<String, void>> delete(String id) => FirebaseCloudFunctionService
+      .instance
+      .mutate(collection: 'master_lc', action: 'delete', id: id);
 }

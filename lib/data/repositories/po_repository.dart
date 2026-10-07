@@ -8,7 +8,11 @@
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
 import '../../core/services/activity/activity_log_service.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../core/services/firebase/firebase_cloud_function_service.dart';
+
 import 'package:dartz/dartz.dart';
 
 import '../../core/constants/app_constants.dart';
@@ -156,135 +160,21 @@ class PORepository implements IPORepository {
   Future<Either<String, void>> updateWithTransaction(POEntity item) =>
       _writeWithTransaction(item, isUpdate: true);
 
-  /// Validation + atomic write.
-  ///
-  /// Master LC and the sibling POs of the same tag are re-read **inside** the
-  /// transaction, so two devices saving the same tag concurrently cannot both
-  /// consume the same Master LC headroom: Firestore re-runs the transaction and
-  /// the loser fails the limit check.
+  /// Authorization, quantity/date checks and writes run in one server transaction.
   Future<Either<String, void>> _writeWithTransaction(
     POEntity item, {
     required bool isUpdate,
   }) async {
-    final ref = isUpdate && item.id != null
-        ? _collection.doc(item.id)
-        : _collection.doc();
-    try {
-      final data = POModel.fromEntity(item).toFirestore();
-      data['id'] = ref.id;
-      await _db.runTransaction<void>((transaction) async {
-        // 0. PO No must be globally unique. The query runs outside the
-        // transaction (6.x transactions read documents only) and the matched
-        // documents are re-read transactionally so a concurrent insert is seen.
-        final duplicateQuery = await _collection
-            .where('poNo', isEqualTo: item.poNo.trim())
-            .limit(10)
-            .get();
-        for (final doc in duplicateQuery.docs) {
-          if (doc.id == ref.id) continue;
-          final snapshot = await transaction.get(doc.reference);
-          if (snapshot.exists) {
-            throw _POValidationException(
-              'PO No ${item.poNo.trim()} already exists',
-            );
-          }
-        }
-
-        // 1. Resolve the Master LC document for this tag. The query is run
-        // outside the transaction (queries are unsupported by 6.x transactions)
-        // but the document itself is re-read transactionally so its limits are
-        // always current.
-        final masterQuery = await _masterCollection
-            .where('tagNo', isEqualTo: item.tagNo)
-            .limit(1)
-            .get();
-        if (masterQuery.docs.isEmpty) {
-          throw _POValidationException(
-            'Master LC not found for tag ${item.tagNo}',
-          );
-        }
-        final masterRef = masterQuery.docs.first.reference;
-        final masterSnapshot = await transaction.get(masterRef);
-        final master = masterSnapshot.data() ?? const <String, dynamic>{};
-        final masterQuantity = _number(master['masterLcQuantity']);
-        final masterValue = _double(master['masterLcValue']);
-
-        // 2. Sibling POs of the same tag (self-excluded on update).
-        final siblings = await _collection
-            .where('tagNo', isEqualTo: item.tagNo)
-            .limit(1000)
-            .get();
-        var usedQuantity = 0;
-        var usedValue = 0.0;
-        for (final doc in siblings.docs) {
-          if (doc.id == ref.id) continue;
-          final model = POModel.fromSnapshot(doc);
-          usedQuantity += model.totalQuantity;
-          usedValue += model.totalValue;
-        }
-
-        // 3. Validate against the persisted limits.
-        final quantity = usedQuantity + item.totalQuantity;
-        final value = usedValue + item.totalValue;
-        if (quantity > masterQuantity) {
-          throw _POValidationException(
-            'PO quantity exceeds available Master LC quantity '
-            '(available: ${masterQuantity - usedQuantity})',
-          );
-        }
-        if (value > masterValue) {
-          throw _POValidationException(
-            'PO value exceeds available Master LC value '
-            '(available: ${(masterValue - usedValue).toStringAsFixed(2)})',
-          );
-        }
-
-        // 4. Atomic write with the auto-generated Sl.
-        if (isUpdate) {
-          final snapshot = await transaction.get(ref);
-          if (!snapshot.exists) {
-            throw const _POValidationException('PO no longer exists');
-          }
-          // The Sl. is immutable once assigned: keep the persisted value.
-          data['sl'] = _number(snapshot.data()?['sl']);
-          transaction.update(ref, data);
-          return;
-        }
-
-        // Create path: allocate the next Sl. atomically.
-        //
-        // Firestore has no native auto-increment, so a counter document is
-        // incremented inside the transaction. Firestore re-runs the transaction
-        // on conflict, which makes the read-increment-write sequence atomic.
-        final counterSnapshot = await transaction.get(_counterDoc);
-        final stored = counterSnapshot.data()?['value'];
-        var lastAssigned = stored is num ? stored.toInt() : 0;
-
-        // Guard against records created before the counter existed.
-        final latest = await _collection
-            .orderBy('sl', descending: true)
-            .limit(1)
-            .get();
-        final maxStored = latest.docs.isEmpty
-            ? 0
-            : _number(latest.docs.first.data()['sl']);
-        if (maxStored > lastAssigned) lastAssigned = maxStored;
-
-        final nextSl = lastAssigned + 1;
-        data['sl'] = nextSl;
-        transaction.set(ref, data);
-        transaction.set(_counterDoc, {'value': nextSl});
-      });
-      return const Right(null);
-    } on _POValidationException catch (e) {
-      return Left(e.message);
-    } on FirebaseException catch (e) {
-      return Left(
-        '${isUpdate ? 'Failed to update' : 'Failed to create'}: ${e.message}',
-      );
-    } catch (_) {
-      return const Left('An unexpected error occurred');
+    if (isUpdate && (item.id == null || item.id!.isEmpty)) {
+      return const Left('Record ID is required for update');
     }
+    final id = isUpdate ? item.id! : _collection.doc().id;
+    return FirebaseCloudFunctionService.instance.mutate(
+      collection: 'purchase_orders',
+      action: isUpdate ? 'update' : 'create',
+      id: id,
+      data: POModel.fromEntity(item).toFirestore(),
+    );
   }
 
   static int _number(Object? value) => value is num
@@ -296,35 +186,15 @@ class PORepository implements IPORepository {
       : double.tryParse(value?.toString().trim() ?? '') ?? 0;
 
   @override
-  Future<Either<String, void>> createPO(POEntity item) {
-    return guard(() async {
-      final ref = _collection.doc();
-      final data = POModel.fromEntity(item).toFirestore();
-      data['id'] = ref.id;
-      await ref.set(data);
-    }, prefix: 'Failed to create');
-  }
+  Future<Either<String, void>> createPO(POEntity item) =>
+      _writeWithTransaction(item, isUpdate: false);
 
   @override
-  Future<Either<String, void>> update(POEntity item) {
-    return guard(() async {
-      await _collection
-          .doc(item.id)
-          .update(POModel.fromEntity(item).toFirestore());
-    }, prefix: 'Failed to update');
-  }
+  Future<Either<String, void>> update(POEntity item) =>
+      _writeWithTransaction(item, isUpdate: true);
 
   @override
-  Future<Either<String, void>> delete(String id) {
-    return guard(() async {
-      await _collection.doc(id).delete();
-    }, prefix: 'Failed to delete');
-  }
-}
-
-/// Internal marker so a failed transaction validation is surfaced to the user
-/// verbatim instead of being wrapped in a generic Firestore error message.
-class _POValidationException implements Exception {
-  const _POValidationException(this.message);
-  final String message;
+  Future<Either<String, void>> delete(String id) => FirebaseCloudFunctionService
+      .instance
+      .mutate(collection: 'purchase_orders', action: 'delete', id: id);
 }

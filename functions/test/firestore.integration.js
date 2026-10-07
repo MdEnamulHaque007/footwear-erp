@@ -42,11 +42,10 @@ test('logs are admin-readable and immutable even for an admin', async () => {
   await assertFails(setDoc(doc(env.unauthenticatedContext().firestore(),'audit_logs/anonymous'),readPayload()));
 });
 test('real Firestore C/U/D snapshots run through the production trigger and retain history once', async () => {
-  const client=env.authenticatedContext('editor',{email:'editor@example.com'}).firestore();
   const db=getFirestore();
   const ref=db.doc('cuttings/trigger-record');
   let before=await ref.get();
-  await assertSucceeds(setDoc(doc(client,ref.path),{voucherNo:'C-1',quantity:10}));
+  await ref.set({voucherNo:'C-1',quantity:10});
   let after=await ref.get();
   const event=(id,b,a)=>({id,time:'2026-10-07T07:00:00Z',authId:'editor',authType:'unknown',params:{documentPath:ref.path},data:{before:b,after:a}});
   await recordActivity.run(event('create-test',before,after));
@@ -54,11 +53,11 @@ test('real Firestore C/U/D snapshots run through the production trigger and reta
   const created=(await db.doc(`audit_logs/${eventLogId('create-test')}`).get()).data();
   assert.equal(created.actorUid,'editor'); assert.equal(created.actorName,'Editor'); assert.equal(created.actorEmail,'editor@example.com');
   assert.equal(created.action,'create'); assert.equal(created.after.quantity,10);
-  before=after; await assertSucceeds(updateDoc(doc(client,ref.path),{quantity:20})); after=await ref.get();
+  before=after; await ref.update({quantity:20}); after=await ref.get();
   await recordActivity.run(event('update-test',before,after));
   const updated=(await db.doc(`audit_logs/${eventLogId('update-test')}`).get()).data();
   assert.equal(updated.before.quantity,10); assert.equal(updated.after.quantity,20);
-  before=after; await assertSucceeds(deleteDoc(doc(client,ref.path))); after=await ref.get();
+  before=after; await ref.delete(); after=await ref.get();
   await recordActivity.run(event('delete-test',before,after));
   const deleted=(await db.doc(`audit_logs/${eventLogId('delete-test')}`).get()).data();
   assert.equal(deleted.action,'delete'); assert.equal(deleted.before.quantity,20);

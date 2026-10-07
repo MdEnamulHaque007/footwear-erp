@@ -79,8 +79,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
   _Cache? _cache;
 
-  bool get hasFreshCache =>
-      _cache != null && DateTime.now().difference(_cache!.at) < cacheTtl;
+  bool get hasFreshCache => false;
 
   // ------------------------------------------------------------- handlers
 
@@ -142,8 +141,12 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     );
     if (emit.isDone) return;
     final comparisonResults = results.whereType<ComparisonResult>().toList();
-    final sideA = comparisonResults.isEmpty ? null : comparisonResults.first.data;
-    final sideB = comparisonResults.length < 2 ? null : comparisonResults[1].data;
+    final sideA = comparisonResults.isEmpty
+        ? null
+        : comparisonResults.first.data;
+    final sideB = comparisonResults.length < 2
+        ? null
+        : comparisonResults[1].data;
     final insight = (sideA == null || sideB == null)
         ? null
         : _buildInsight(sideA, sideB);

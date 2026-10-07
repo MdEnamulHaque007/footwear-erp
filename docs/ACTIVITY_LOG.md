@@ -7,7 +7,7 @@ Open **Activity Log** from the drawer or bottom navigation. The existing
 
 - Successful Firestore creates, changes and deletes in Master LC, PO, Cutting,
   Sewing, Lasting/Production, FG Issue, Export, users, roles, business settings
-  and private app preferences are recorded by a second-generation Cloud Function.
+  and private app preferences are recorded by trusted server functions. Business writes and their attributed history commit atomically; other collections and privileged imports are recorded by the Firestore trigger.
 - This includes transactions, batches and external Firestore imports. There is
   one history entry per changed document, not one entry per batch.
 - Public repository reads, dropdown lookups, validations, dashboards, reports
@@ -48,7 +48,8 @@ Use the Firebase project configured for this app (currently `footwear-9d10e`):
 
 ```sh
 npm ci --prefix functions
-firebase deploy --project footwear-9d10e --only firestore:rules,firestore:indexes,functions:recordActivity
+firebase deploy --project footwear-9d10e --only functions:recordActivity,functions:mutateBusiness,functions:bootstrapAdmin
+firebase deploy --project footwear-9d10e --only firestore:rules,firestore:indexes
 flutter build web
 ```
 
@@ -58,9 +59,35 @@ finish building, then perform create/update/delete operations and refresh the
 Activity Log page. Trigger delivery is asynchronous, so writes may appear after
 a short delay. Deploy to a test project first when validating release behavior.
 
-Do not deploy the project's debug-bypass Firestore rules. This feature does not
-repair the existing first-admin bootstrap rule; review that separately before
-production release. Existing broad business permissions remain unchanged.
+Deploy functions before releasing the updated Flutter app and rules. The updated
+rules deny direct business writes: all seven business modules use `mutateBusiness`.
+Publishing only the Flutter/Vercel build is insufficient. Existing older clients
+that write directly must be upgraded. Do not use debug-bypass rules in production.
+
+## Server validation and first admin
+
+`mutateBusiness` checks the caller's active profile and module permission inside
+the transaction. It calculates canonical quantities/values and serial numbers,
+preserves creation dates, validates Master LC/PO allocation and the dated
+Cutting → Sewing → Production → Issue → Export chain, including upstream edits
+and deletes. Cutting may exceed PO quantity. A shared transaction lock prevents
+concurrent inserts from consuming the same balance. This serializes business
+writes; load-test large datasets before high-volume production use. Privileged
+Admin SDK imports bypass this validation and require separate validation.
+
+There is no public self-selected admin registration. For a fresh project, the
+Firebase project owner can create `users/{Firebase Auth UID}` in Firebase Console
+with `uid`, `email`, `displayName`, `role: "admin"`, `isActive: true` and an empty
+`permissions` map. Sign in with that account. Alternatively the owner may grant
+that UID the `erpBootstrap: true` custom claim using Firebase Admin SDK (preserve
+existing claims), then sign out/in and use the bootstrap screen. The callable
+requires that claim, rejects an existing admin and allows only one concurrent
+bootstrap. Normal viewer registration cannot acquire admin access.
+
+DemoDataSeeder now uses the same callable API and clears downstream collections
+first. Use staging/emulators; thousands of serial callable writes are costly.
+The separate Admin SDK seed script is a privileged fixture, not the client CRUD
+API, and must not be used to bypass production business validation.
 
 ## Verification
 
@@ -77,12 +104,16 @@ handler against actual create/update/delete snapshots, including retry dedupe.
 They invoke the trigger handler explicitly; production Eventarc delivery is not
 reproduced by those tests.
 
-## Checks performed in this workspace
+## Checks performed for the error-fix release
 
-- 11 Node unit tests passed.
-- 3 Firestore/Auth emulator integration tests passed.
+- 19 Node unit tests and 11 Firestore/Auth emulator integration tests passed.
+- 9 standalone Dart metric regression assertions passed, including own quantity
+  versus upstream availability and legacy PO values.
+- Every Dart file under lib/test/tool parses successfully (414 files before the
+  demo seeder update); five pre-existing syntax/BOM failures were repaired.
 - Node syntax checks, JSON validation and `git diff --check` passed.
-- The added and changed Dart files were parsed/formatted successfully.
-- Flutter tests and analyzer were not completed: automatic approval review
-  blocked the Flutter startup/dependency process because it attempted cloud
-  metadata endpoint access. No production deployment or GitHub push was made.
+- Full Flutter build, analyzer and widget/unit suites were not completed.
+  Automatic approval review previously rejected Flutter startup because it
+  attempted cloud metadata access. Standalone Dart checks instead ran with
+  socket/connect/sendto denied by a kernel filter; they are not Flutter builds.
+- No production Firebase or Vercel deployment was performed in this release.

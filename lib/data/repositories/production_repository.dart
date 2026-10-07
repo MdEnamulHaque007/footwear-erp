@@ -7,8 +7,13 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../core/services/firebase/firestore_query_paging.dart';
 import '../../core/services/activity/activity_log_service.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../core/services/firebase/firebase_cloud_function_service.dart';
+
 import 'package:dartz/dartz.dart';
 
 import '../../core/constants/app_constants.dart';
@@ -105,7 +110,7 @@ class ProductionRepository implements IProductionRepository {
       documentId: '',
       body: () async {
         try {
-          final snapshot = await _sewingCollection.limit(1000).get();
+          final snapshot = await _sewingCollection.getAll();
           final poNos =
               snapshot.docs
                   .map((doc) => _string(doc.data()['poNo']))
@@ -132,7 +137,7 @@ class ProductionRepository implements IProductionRepository {
       documentId: '',
       body: () async {
         try {
-          final snapshot = await _cuttingCollection.limit(1000).get();
+          final snapshot = await _cuttingCollection.getAll();
           final poNos =
               snapshot.docs
                   .map((doc) => _string(doc.data()['poNo']))
@@ -168,8 +173,7 @@ class ProductionRepository implements IProductionRepository {
             try {
               final snapshot = await _sewingCollection
                   .where('poNo', isEqualTo: poNo)
-                  .limit(1000)
-                  .get();
+                  .getAll();
               final lines = <String, SewingLine>{};
               for (final doc in snapshot.docs) {
                 final data = doc.data();
@@ -267,8 +271,7 @@ class ProductionRepository implements IProductionRepository {
               // view also works before composite indexes finish building in Firestore.
               final snapshot = await _collection
                   .where('poNo', isEqualTo: poNo)
-                  .limit(1000)
-                  .get();
+                  .getAll();
               final normalizedArticle = _normalize(article);
               final normalizedColor = _normalize(color);
               final entries =
@@ -332,8 +335,7 @@ class ProductionRepository implements IProductionRepository {
       body: () async {
         final snapshot = await _collection
             .where('poNo', isEqualTo: poNo)
-            .limit(1000)
-            .get();
+            .getAll();
         return _cumulative(
           snapshot.docs,
           article: article,
@@ -352,180 +354,35 @@ class ProductionRepository implements IProductionRepository {
   Future<Either<String, void>> updateWithTransaction(ProductionEntity item) =>
       _writeWithTransaction(item, isUpdate: true);
 
-  /// Validation + atomic write.
-  ///
-  /// The availability snapshot (Sewing completed on or before the production
-  /// date − Production already recorded for the same PO line) is computed with
-  /// the date-filtered cumulative queries, validated, then the document is
-  /// written inside a `runTransaction` that re-reads the persisted record, so a
-  /// concurrent edit cannot silently over-consume the Sewing balance.
+  /// Authorization, quantity/date checks and writes run in one server transaction.
   Future<Either<String, void>> _writeWithTransaction(
     ProductionEntity item, {
     required bool isUpdate,
   }) async {
-    final ref = isUpdate && item.id != null
-        ? _collection.doc(item.id)
-        : _collection.doc();
-    try {
-      // 1. Cumulative Sewing for this PO line, completed on or before the
-      // selected production date.
-      final sewingQty = await _cumulativeSewing(
-        poTagNo: item.tagNo,
-        poNo: item.poNo,
-        article: item.article,
-        color: item.color,
-        upToDate: item.productionDate,
-      );
-
-      // 2. Production already booked against the same PO line.
-      final producedQty = item.poNo.isEmpty
-          ? await _cumulativeProductionByTag(
-              poTagNo: item.tagNo,
-              excludingId: ref.id,
-            )
-          : await getCumulativeProductionQty(
-              poNo: item.poNo,
-              article: item.article,
-              color: item.color,
-              excludeId: ref.id,
-            );
-
-      // 3. Validate.
-      final available = sewingQty - producedQty;
-      if (item.quantity <= 0) {
-        return const Left('Quantity must be greater than zero');
-      }
-      if (item.quantity > available) {
-        return Left(
-          'Production quantity exceeds available sewing quantity '
-          '(available: $available)',
-        );
-      }
-
-      // 4. Atomic write.
-      final data = ProductionModel.fromEntity(item).toFirestore();
-      await _db.runTransaction<void>((transaction) async {
-        if (isUpdate) {
-          final snapshot = await transaction.get(ref);
-          if (!snapshot.exists) {
-            throw const _ProductionValidationException(
-              'Production record no longer exists',
-            );
-          }
-          transaction.update(ref, data);
-        } else {
-          transaction.set(ref, data);
-        }
-      });
-      return const Right(null);
-    } on _ProductionValidationException catch (e) {
-      return Left(e.message);
-    } on FirebaseException catch (e) {
-      return Left(
-        '${isUpdate ? 'Failed to update' : 'Failed to create'}: ${e.message}',
-      );
-    } catch (_) {
-      return const Left('An unexpected error occurred');
+    if (isUpdate && (item.id == null || item.id!.isEmpty)) {
+      return const Left('Record ID is required for update');
     }
+    final id = isUpdate ? item.id! : _collection.doc().id;
+    return FirebaseCloudFunctionService.instance.mutate(
+      collection: 'productions',
+      action: isUpdate ? 'update' : 'create',
+      id: id,
+      data: ProductionModel.fromEntity(item).toFirestore(),
+    );
   }
 
   @override
-  Future<Either<String, void>> createProduction(ProductionEntity item) async {
-    try {
-      final ref = _collection.doc();
-      final data = ProductionModel.fromEntity(item).toFirestore();
-      await ref.set(data);
-      return const Right(null);
-    } on FirebaseException catch (e) {
-      return Left('Failed to create: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
-  }
+  Future<Either<String, void>> createProduction(ProductionEntity item) =>
+      _writeWithTransaction(item, isUpdate: false);
 
   @override
-  Future<Either<String, void>> update(ProductionEntity item) async {
-    try {
-      final data = ProductionModel.fromEntity(item).toFirestore();
-      data['updatedAt'] = Timestamp.now();
-      await _collection.doc(item.id).update(data);
-      return const Right(null);
-    } on FirebaseException catch (e) {
-      return Left('Failed to update: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
-  }
+  Future<Either<String, void>> update(ProductionEntity item) =>
+      _writeWithTransaction(item, isUpdate: true);
 
   @override
-  Future<Either<String, void>> delete(String id) async {
-    try {
-      await _collection.doc(id).delete();
-      return const Right(null);
-    } on FirebaseException catch (e) {
-      return Left('Failed to delete: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
-  }
-
-  /// Cumulative Sewing quantity for the PO line up to [upToDate].
-  ///
-  /// Filtered by `poNo`/`article`/`color` when the entry carries a PO line
-  /// (the PO-driven flow) and by `poTagNo` otherwise, so legacy records keep
-  /// validating against their tag.
-  Future<int> _cumulativeSewing({
-    required String poTagNo,
-    required String poNo,
-    required String article,
-    required String color,
-    required DateTime upToDate,
-  }) async {
-    if (poNo.isEmpty) {
-      final snapshot = await _sewingCollection
-          .where('tagNo', isEqualTo: poTagNo)
-          .where(
-            'sewingDate',
-            isLessThanOrEqualTo: Timestamp.fromDate(upToDate),
-          )
-          .get();
-      return snapshot.docs.fold<int>(
-        0,
-        (total, doc) => total + _sewingQuantity(doc.data()),
-      );
-    }
-    final snapshot = await _sewingCollection
-        .where('poNo', isEqualTo: poNo)
-        .limit(1000)
-        .get();
-    final cutoff = DateTime(upToDate.year, upToDate.month, upToDate.day);
-    return snapshot.docs
-        .where((doc) {
-          final data = doc.data();
-          return _normalize(data['article']) == _normalize(article) &&
-              _normalize(data['color']) == _normalize(color);
-        })
-        .where((doc) {
-          final date = _date(doc.data()['sewingDate']);
-          if (date == null) return true;
-          return !DateTime(date.year, date.month, date.day).isAfter(cutoff);
-        })
-        .fold<int>(0, (total, doc) => total + _sewingQuantity(doc.data()));
-  }
-
-  /// Cumulative Production for one PO tag, optionally skipping a document.
-  Future<int> _cumulativeProductionByTag({
-    required String poTagNo,
-    String? excludingId,
-  }) async {
-    final snapshot = await _collection
-        .where('tagNo', isEqualTo: poTagNo)
-        .limit(1000)
-        .get();
-    return snapshot.docs
-        .where((doc) => doc.id != excludingId)
-        .fold<int>(0, (total, doc) => total + _quantity(doc.data()));
-  }
+  Future<Either<String, void>> delete(String id) => FirebaseCloudFunctionService
+      .instance
+      .mutate(collection: 'productions', action: 'delete', id: id);
 
   /// Sums Production records for one PO line, optionally skipping a document.
   static int _cumulative(
@@ -568,11 +425,4 @@ class ProductionRepository implements IProductionRepository {
     if (value is String) return DateTime.tryParse(value);
     return null;
   }
-}
-
-/// Internal marker so a failed transaction validation is surfaced to the user
-/// verbatim instead of being wrapped in a generic Firestore error message.
-class _ProductionValidationException implements Exception {
-  const _ProductionValidationException(this.message);
-  final String message;
 }

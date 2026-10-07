@@ -7,7 +7,9 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../core/services/firebase/firestore_query_paging.dart';
 import '../../core/services/activity/activity_log_service.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
 
@@ -19,7 +21,6 @@ class WarehouseReportRepository implements IWarehouseReportRepository {
   WarehouseReportRepository({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
 
-  static const _limit = 1000;
   final FirebaseFirestore _firestore;
 
   @override
@@ -109,10 +110,7 @@ class WarehouseReportRepository implements IWarehouseReportRepository {
   }
 
   Future<List<Map<String, dynamic>>> _fetchCollection(String collection) async {
-    final snapshot = await _firestore
-        .collection(collection)
-        .limit(_limit)
-        .get();
+    final snapshot = await _firestore.collection(collection).getAll();
     return snapshot.docs.map((document) => document.data()).toList();
   }
 
@@ -126,8 +124,7 @@ class WarehouseReportRepository implements IWarehouseReportRepository {
         .collection(collection)
         .where(dateField, isGreaterThanOrEqualTo: Timestamp.fromDate(from))
         .where(dateField, isLessThanOrEqualTo: Timestamp.fromDate(to))
-        .limit(_limit)
-        .get();
+        .getAll();
     return snapshot.docs.map((document) => document.data()).toList();
   }
 

@@ -8,6 +8,7 @@
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../../../domain/entities/issue_entity.dart';
 
 class IssueModel extends IssueEntity {
@@ -67,7 +68,9 @@ class IssueModel extends IssueEntity {
   factory IssueModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> s) {
     final d = s.data() ?? {};
     final primaryTagNo = _string(d['tagNo']);
-    final tagNo = primaryTagNo.isNotEmpty ? primaryTagNo : _string(d['poTagNo']);
+    final tagNo = primaryTagNo.isNotEmpty
+        ? primaryTagNo
+        : _string(d['poTagNo']);
     final quantity = _int(d['quantity'] ?? d['issueQuantity']);
     return IssueModel(
       id: s.id,
@@ -96,6 +99,14 @@ class IssueModel extends IssueEntity {
   }
 
   Map<String, dynamic> toFirestore() => {
+    'sl': sl,
+    'company': company,
+    'project': project,
+    'unitPrice': unitPrice,
+    'issueValue': quantity * unitPrice,
+    'productionQuantity': productionQuantity,
+    'quantity': quantity,
+
     'voucherNo': voucherNo,
     'issueDate': Timestamp.fromDate(issueDate),
     'issueQuantity': quantity,

@@ -43,6 +43,8 @@ class AuthRepository implements IAuthRepository {
 
   static String messageFor(FirebaseAuthException error) {
     switch (error.code) {
+      case 'user-disabled':
+        return 'Your account is disabled. Contact an administrator.';
       case 'invalid-credential':
       case 'wrong-password':
       case 'user-not-found':

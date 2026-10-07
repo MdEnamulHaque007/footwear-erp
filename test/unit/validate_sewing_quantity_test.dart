@@ -48,6 +48,7 @@ class FakeSewingRepository implements ISewingRepository {
     required String article,
     required String color,
     String? excludeId,
+    DateTime? upToDate,
   }) async {
     requestedExcludeId = excludeId;
     return sewing;

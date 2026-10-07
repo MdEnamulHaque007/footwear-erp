@@ -8,6 +8,7 @@
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../../../domain/entities/production_entity.dart';
 
 class ProductionModel extends ProductionEntity {
@@ -66,7 +67,9 @@ class ProductionModel extends ProductionEntity {
   ) {
     final d = s.data() ?? {};
     final primaryTagNo = _string(d['tagNo']);
-    final tagNo = primaryTagNo.isNotEmpty ? primaryTagNo : _string(d['poTagNo']);
+    final tagNo = primaryTagNo.isNotEmpty
+        ? primaryTagNo
+        : _string(d['poTagNo']);
     final quantity = _int(d['quantity'] ?? d['productionQuantity']);
     return ProductionModel(
       id: s.id,
@@ -95,6 +98,13 @@ class ProductionModel extends ProductionEntity {
   }
 
   Map<String, dynamic> toFirestore() => {
+    'sl': sl,
+    'company': company,
+    'project': project,
+    'unitPrice': unitPrice,
+    'productionValue': quantity * unitPrice,
+    'sewingQuantity': sewingQuantity,
+
     'voucherNo': voucherNo,
     'productionDate': Timestamp.fromDate(productionDate),
     'quantity': quantity,
@@ -132,4 +142,3 @@ class ProductionModel extends ProductionEntity {
     return null;
   }
 }
-

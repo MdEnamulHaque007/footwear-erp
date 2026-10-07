@@ -8,6 +8,7 @@
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
 import 'package:dartz/dartz.dart';
+
 import '../entities/sewing_entity.dart';
 import '../../data/models/sewing/sewing_model.dart';
 import '../../data/models/purchase_order/po_model.dart';
@@ -64,6 +65,7 @@ abstract interface class ISewingRepository {
     required String article,
     required String color,
     String? excludeId,
+    DateTime? upToDate,
   });
 
   /// Cumulative Sewing quantity for a PO tag up to [upToDate].
@@ -73,4 +75,3 @@ abstract interface class ISewingRepository {
     required DateTime upToDate,
   });
 }
-

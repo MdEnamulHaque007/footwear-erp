@@ -103,25 +103,7 @@ service cloud.firestore {
           && request.resource.data.displayName is string
           && request.resource.data.email is string;
 
-      // First-admin bootstrap.
-      //
-      // A brand-new Firebase project has no way to obtain its first admin: the
-      // account exists in Firebase Auth but has no `users/{uid}` profile, so
-      // every rule denies and the console-created user is locked out
-      // permanently. This clause lets an authenticated account create its OWN
-      // profile as admin, but ONLY while no such profile exists yet — i.e.
-      // exactly once, during initial setup.
-      //
-      // The `!exists()` guard is what bounds this to a single use. Once the
-      // profile exists this clause can never fire again, so it cannot be used
-      // for later privilege escalation, and no marker field is needed. The
-      // profile is written in one shot (see AuthRemoteDataSource), so there is
-      // deliberately no `bootstrap` flag to clean up.
-      allow create: if signedIn()
-          && request.auth.uid == userId
-          && request.resource.data.role == 'admin'
-          && request.resource.data.isActive == true
-          && !exists(/databases/$(database)/documents/users/$(request.auth.uid));
+      // Initial administrator setup is allowlisted and claimed by the server.
 
       allow update: if isAdmin()
           || (signedIn()
@@ -194,18 +176,15 @@ service cloud.firestore {
     // record write, so any signed-in active user must be able to read and write
     // them regardless of per-module permissions.
     match /_counters/{counterId} {
-      allow read, write: if isActive();
+      allow read: if isActive();
+      allow write: if false;
     }
 
     match /{collection}/{docId} {
       allow read: if isBusinessCollection(collection)
           && hasPermission(moduleFor(collection), 'view');
-      allow create: if isBusinessCollection(collection)
-          && hasPermission(moduleFor(collection), 'create');
-      allow update: if isBusinessCollection(collection)
-          && hasPermission(moduleFor(collection), 'edit');
-      allow delete: if isBusinessCollection(collection)
-          && hasPermission(moduleFor(collection), 'delete');
+      // C/U/D requires mutateBusiness, which validates the whole workflow.
+      allow create, update, delete: if false;
     }
   }
 }

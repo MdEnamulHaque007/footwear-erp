@@ -7,7 +7,9 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../core/services/firebase/firestore_query_paging.dart';
 import '../../core/services/activity/activity_log_service.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
 
@@ -40,7 +42,6 @@ class ProductionReportRepository implements IProductionReportRepository {
       _db.collection(AppConstants.collectionPO);
 
   /// Per-query cap so a wide date range cannot pull an unbounded result set.
-  static const int _queryLimit = 1000;
 
   @override
   Future<Either<String, List<ProductionReportEntity>>> getProductionReport({
@@ -175,8 +176,7 @@ class ProductionReportRepository implements IProductionReportRepository {
     final snapshot = await collection
         .where(dateField, isGreaterThanOrEqualTo: Timestamp.fromDate(from))
         .where(dateField, isLessThanOrEqualTo: Timestamp.fromDate(to))
-        .limit(_queryLimit)
-        .get();
+        .getAll();
     return snapshot.docs.map((doc) => doc.data()).toList();
   }
 

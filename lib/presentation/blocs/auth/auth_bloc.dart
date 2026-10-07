@@ -41,6 +41,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
        super(AuthLoading()) {
     _subscription = repository.authStateChanges.listen(
       (user) => add(AuthStateChanged(user)),
+      onError: (Object error, StackTrace stack) => add(CheckAuthStatus()),
     );
     on<AuthStarted>((event, emit) async => add(CheckAuthStatus()));
     on<CheckAuthStatus>(_onCheckStatus);

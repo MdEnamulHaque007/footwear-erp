@@ -34,7 +34,11 @@ class _FakeSewingRepository implements ISewingRepository {
     required String article,
     required String color,
     String? excludeId,
-  }) async => lineQty;
+    DateTime? upToDate,
+  }) async {
+    requestedUpToDate = upToDate;
+    return lineQty;
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -64,6 +68,23 @@ class _FakeProductionRepository implements IProductionRepository {
 }
 
 void main() {
+  test(
+    'line validation forwards production date to the Sewing lookup',
+    () async {
+      final sewing = _FakeSewingRepository(100, 100);
+      final date = DateTime(2026, 10, 7);
+      await ValidateProductionQuantityUseCase(sewing).call(
+        poTagNo: 'T',
+        poNo: 'P',
+        article: 'A',
+        color: 'B',
+        productionDate: date,
+        candidateQuantity: 1,
+      );
+      expect(sewing.requestedUpToDate, date);
+    },
+  );
+
   group('ValidateProductionQuantityUseCase', () {
     test('accepts quantity within the available sewing quantity', () async {
       final useCase = ValidateProductionQuantityUseCase(

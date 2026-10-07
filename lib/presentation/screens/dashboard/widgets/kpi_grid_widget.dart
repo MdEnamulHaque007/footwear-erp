@@ -8,6 +8,11 @@
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../blocs/auth/auth_bloc.dart';
+import '../../../blocs/auth/auth_state.dart';
+
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/color_palette.dart';
@@ -49,6 +54,8 @@ class KpiGridWidget extends StatelessWidget {
 
   List<Widget> _cards(BuildContext context) {
     void go(String route) => context.go(route);
+    final auth = context.watch<AuthBloc>().state;
+    final isAdmin = auth is Authenticated && auth.user.isAdmin;
     return [
       KpiStatCardWidget(
         emoji: '📄',
@@ -115,15 +122,16 @@ class KpiGridWidget extends StatelessWidget {
         color: ColorPalette.export,
         onTap: () => go('/export'),
       ),
-      KpiStatCardWidget(
-        emoji: '👥',
-        icon: Icons.people_alt,
-        title: 'Users',
-        count: stats.userCount,
-        value: stats.activeUserCount.toDouble(),
-        color: ColorPalette.info,
-        onTap: () => go('/admin/users'),
-      ),
+      if (isAdmin)
+        KpiStatCardWidget(
+          emoji: '👥',
+          icon: Icons.people_alt,
+          title: 'Users',
+          count: stats.userCount,
+          value: stats.activeUserCount.toDouble(),
+          color: ColorPalette.info,
+          onTap: () => go('/admin/users'),
+        ),
     ];
   }
 }

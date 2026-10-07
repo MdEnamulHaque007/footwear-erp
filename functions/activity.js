@@ -22,7 +22,7 @@ function sanitize(value, depth = 0) {
   if (Buffer.isBuffer(value) || value instanceof Uint8Array) return '[binary]';
   if (Array.isArray(value)) return value.slice(0, 100).map(v => sanitize(v, depth + 1));
   if (typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).slice(0, 100).map(([key, v]) =>
+    return Object.fromEntries(Object.entries(value).filter(([key]) => key !== '_activityMutationId').slice(0, 100).map(([key, v]) =>
       [key, sensitive.test(key) ? '[redacted]' : sanitize(v, depth + 1)]));
   }
   return String(value);
@@ -42,7 +42,7 @@ function buildActivity({eventId, path, before, after, authId, authType, actor, c
   if (!module || (!before && !after)) return null;
   const action = !before ? 'create' : !after ? 'delete' : 'update';
   const changedFields = Object.keys({...before, ...after}).filter(key =>
-    !isDeepStrictEqual(before?.[key], after?.[key]));
+    key !== '_activityMutationId' && !isDeepStrictEqual(before?.[key], after?.[key]));
   if (action === 'update' && changedFields.length === 0) return null;
   const record = after || before;
   return {

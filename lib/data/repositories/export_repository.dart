@@ -7,8 +7,13 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../core/services/firebase/firestore_query_paging.dart';
 import '../../core/services/activity/activity_log_service.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../core/services/firebase/firebase_cloud_function_service.dart';
+
 import 'package:dartz/dartz.dart';
 
 import '../../core/constants/app_constants.dart';
@@ -125,8 +130,7 @@ class ExportRepository implements IExportRepository {
               // view also works before composite indexes finish building in Firestore.
               final snapshot = await _collection
                   .where('poNo', isEqualTo: poNo)
-                  .limit(1000)
-                  .get();
+                  .getAll();
               final normalizedArticle = _normalize(article);
               final normalizedColor = _normalize(color);
               final entries =
@@ -160,7 +164,7 @@ class ExportRepository implements IExportRepository {
       documentId: '',
       body: () async {
         try {
-          final snapshot = await _issueCollection.limit(1000).get();
+          final snapshot = await _issueCollection.getAll();
           final poNos =
               snapshot.docs
                   .map((doc) => _string(doc.data()['poNo']))
@@ -193,8 +197,7 @@ class ExportRepository implements IExportRepository {
             try {
               final snapshot = await _issueCollection
                   .where('poNo', isEqualTo: poNo)
-                  .limit(1000)
-                  .get();
+                  .getAll();
               final lines = <String, IssueLine>{};
               for (final doc in snapshot.docs) {
                 final data = doc.data();
@@ -267,8 +270,7 @@ class ExportRepository implements IExportRepository {
       body: () async {
         final snapshot = await _issueCollection
             .where('poNo', isEqualTo: poNo)
-            .limit(1000)
-            .get();
+            .getAll();
         final cutoff = DateTime(upToDate.year, upToDate.month, upToDate.day);
         return snapshot.docs
             .where((doc) => doc.id != excludeId)
@@ -301,8 +303,7 @@ class ExportRepository implements IExportRepository {
       body: () async {
         final snapshot = await _collection
             .where('poNo', isEqualTo: poNo)
-            .limit(1000)
-            .get();
+            .getAll();
         return _cumulativeExport(
           snapshot.docs,
           article: article,
@@ -321,110 +322,35 @@ class ExportRepository implements IExportRepository {
   Future<Either<String, void>> updateWithTransaction(ExportEntity item) =>
       _writeWithTransaction(item, isUpdate: true);
 
-  /// Validation + atomic write.
-  ///
-  /// The availability snapshot (Issue completed on or before the export date −
-  /// Export already recorded for the same PO line) is computed with the
-  /// date-filtered cumulative queries, validated, then the document is written
-  /// inside a `runTransaction` that re-reads the persisted record, so a
-  /// concurrent edit cannot silently over-consume the Issue balance.
+  /// Authorization, quantity/date checks and writes run in one server transaction.
   Future<Either<String, void>> _writeWithTransaction(
     ExportEntity item, {
     required bool isUpdate,
   }) async {
-    final ref = isUpdate && item.id != null
-        ? _collection.doc(item.id)
-        : _collection.doc();
-    try {
-      final issueQty = await getCumulativeIssueQty(
-        poNo: item.poNo,
-        article: item.article,
-        color: item.color,
-        upToDate: item.exportDate,
-      );
-      final exportedQty = await getCumulativeExportQty(
-        poNo: item.poNo,
-        article: item.article,
-        color: item.color,
-        excludeId: ref.id,
-      );
-
-      final available = issueQty - exportedQty;
-      if (item.quantity <= 0) {
-        return const Left('Quantity must be greater than zero');
-      }
-      if (item.quantity > available) {
-        return Left(
-          'Export quantity exceeds available issue quantity '
-          '(available: $available)',
-        );
-      }
-
-      final data = ExportModel.fromEntity(item).toFirestore();
-      await _db.runTransaction<void>((transaction) async {
-        if (isUpdate) {
-          final snapshot = await transaction.get(ref);
-          if (!snapshot.exists) {
-            throw const _ExportValidationException(
-              'Export record no longer exists',
-            );
-          }
-          transaction.update(ref, data);
-        } else {
-          transaction.set(ref, data);
-        }
-      });
-      return const Right(null);
-    } on _ExportValidationException catch (e) {
-      return Left(e.message);
-    } on FirebaseException catch (e) {
-      return Left(
-        '${isUpdate ? 'Failed to update' : 'Failed to create'}: ${e.message}',
-      );
-    } catch (_) {
-      return const Left('An unexpected error occurred');
+    if (isUpdate && (item.id == null || item.id!.isEmpty)) {
+      return const Left('Record ID is required for update');
     }
+    final id = isUpdate ? item.id! : _collection.doc().id;
+    return FirebaseCloudFunctionService.instance.mutate(
+      collection: 'exports',
+      action: isUpdate ? 'update' : 'create',
+      id: id,
+      data: ExportModel.fromEntity(item).toFirestore(),
+    );
   }
 
   @override
-  Future<Either<String, void>> createExport(ExportEntity item) async {
-    try {
-      final ref = _collection.doc();
-      final data = ExportModel.fromEntity(item).toFirestore();
-      await ref.set(data);
-      return const Right(null);
-    } on FirebaseException catch (e) {
-      return Left('Failed to create: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
-  }
+  Future<Either<String, void>> createExport(ExportEntity item) =>
+      _writeWithTransaction(item, isUpdate: false);
 
   @override
-  Future<Either<String, void>> update(ExportEntity item) async {
-    try {
-      final data = ExportModel.fromEntity(item).toFirestore();
-      data['updatedAt'] = Timestamp.now();
-      await _collection.doc(item.id).update(data);
-      return const Right(null);
-    } on FirebaseException catch (e) {
-      return Left('Failed to update: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
-  }
+  Future<Either<String, void>> update(ExportEntity item) =>
+      _writeWithTransaction(item, isUpdate: true);
 
   @override
-  Future<Either<String, void>> delete(String id) async {
-    try {
-      await _collection.doc(id).delete();
-      return const Right(null);
-    } on FirebaseException catch (e) {
-      return Left('Failed to delete: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
-  }
+  Future<Either<String, void>> delete(String id) => FirebaseCloudFunctionService
+      .instance
+      .mutate(collection: 'exports', action: 'delete', id: id);
 
   /// Sums Export records for one PO line, optionally skipping a document.
   static int _cumulativeExport(
@@ -466,11 +392,4 @@ class ExportRepository implements IExportRepository {
     if (value is String) return DateTime.tryParse(value);
     return null;
   }
-}
-
-/// Internal marker so a failed transaction validation is surfaced to the user
-/// verbatim instead of being wrapped in a generic Firestore error message.
-class _ExportValidationException implements Exception {
-  const _ExportValidationException(this.message);
-  final String message;
 }

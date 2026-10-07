@@ -7,7 +7,10 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../core/services/firebase/firestore_query_paging.dart';
+import '../../domain/services/record_metrics.dart';
 import '../../core/services/activity/activity_log_service.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
 
@@ -39,7 +42,6 @@ class FinishedGoodsReportRepository implements IFinishedGoodsReportRepository {
       _db.collection(AppConstants.collectionExport);
 
   /// Per-query cap so a wide date range cannot pull an unbounded result set.
-  static const int _queryLimit = 1000;
 
   @override
   Future<Either<String, List<FinishedGoodsReportEntity>>>
@@ -150,9 +152,10 @@ class FinishedGoodsReportRepository implements IFinishedGoodsReportRepository {
         article: key.article,
         color: key.color,
         openingBalance:
-            _sumQuantity(issueBefore, key) - _sumQuantity(exportBefore, key),
-        fgIn: _sumQuantity(issueInRange, key),
-        fgOut: _sumQuantity(exportInRange, key),
+            _sumQuantity(issueBefore, key, 'issues') -
+            _sumQuantity(exportBefore, key, 'exports'),
+        fgIn: _sumQuantity(issueInRange, key, 'issues'),
+        fgOut: _sumQuantity(exportInRange, key, 'exports'),
       );
       // The sheet hides fully zeroed lines.
       if (!row.isNonZero) continue;
@@ -182,22 +185,29 @@ class FinishedGoodsReportRepository implements IFinishedGoodsReportRepository {
     bool exclusiveEnd,
   ) async {
     final upperBound = Timestamp.fromDate(to);
-    final query = collection
-        .where(dateField, isGreaterThanOrEqualTo: Timestamp.fromDate(from))
-        .limit(_queryLimit);
+    final query = collection.where(
+      dateField,
+      isGreaterThanOrEqualTo: Timestamp.fromDate(from),
+    );
     final snapshot = exclusiveEnd
-        ? await query.where(dateField, isLessThan: upperBound).get()
-        : await query.where(dateField, isLessThanOrEqualTo: upperBound).get();
+        ? await query.where(dateField, isLessThan: upperBound).getAll()
+        : await query
+              .where(dateField, isLessThanOrEqualTo: upperBound)
+              .getAll();
     return snapshot.docs.map((doc) => doc.data()).toList();
   }
 
   /// Sums one line's quantity, preferring the modern field name and falling back
   /// to the legacy `quantity` alias.
-  static int _sumQuantity(List<Map<String, dynamic>> docs, _LineKey key) {
+  static int _sumQuantity(
+    List<Map<String, dynamic>> docs,
+    _LineKey key,
+    String collection,
+  ) {
     var total = 0;
     for (final data in docs) {
       if (_LineKey.fromData(data) != key) continue;
-      total += _number(data['quantity'] ?? data['exportQuantity']);
+      total += RecordMetrics.quantity(collection, data).toInt();
     }
     return total;
   }
@@ -206,10 +216,6 @@ class FinishedGoodsReportRepository implements IFinishedGoodsReportRepository {
       DateTime(value.year, value.month, value.day);
   static DateTime _dayEnd(DateTime value) =>
       DateTime(value.year, value.month, value.day, 23, 59, 59, 999);
-
-  static int _number(Object? value) => value is num
-      ? value.toInt()
-      : int.tryParse(value?.toString().trim() ?? '') ?? 0;
 }
 
 /// Identity of a FG line: poNo + article + color, compared case-insensitively.

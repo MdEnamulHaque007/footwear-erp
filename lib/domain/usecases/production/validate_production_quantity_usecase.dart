@@ -108,6 +108,7 @@ class ValidateProductionQuantityUseCase {
             poNo: poNo,
             article: article,
             color: color,
+            upToDate: productionDate,
           );
     final repository = _productionRepository;
     final producedTotal = poNo.isNotEmpty && repository != null

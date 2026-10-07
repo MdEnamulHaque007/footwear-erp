@@ -7,8 +7,13 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../core/services/firebase/firestore_query_paging.dart';
 import '../../core/services/activity/activity_log_service.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../core/services/firebase/firebase_cloud_function_service.dart';
+
 import 'package:dartz/dartz.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
@@ -100,7 +105,9 @@ class CuttingRepository implements ICuttingRepository {
               if (page > 0 && _lastDoc != null) {
                 query = query.startAfterDocument(_lastDoc!);
               }
-              final snapshot = await query.limit(limit).get();
+              final snapshot = limit == 0
+                  ? await query.getAll()
+                  : CompleteQueryResult((await query.limit(limit).get()).docs);
               if (snapshot.docs.isNotEmpty) _lastDoc = snapshot.docs.last;
 
               final list = snapshot.docs
@@ -206,7 +213,13 @@ class CuttingRepository implements ICuttingRepository {
       body: () async {
         final missing = items
             .where((item) => item.poNo.isNotEmpty)
-            .where((item) => item.tagNo.isEmpty || item.poQuantity == 0)
+            .where(
+              (item) =>
+                  item.tagNo.isEmpty ||
+                  item.poQuantity == 0 ||
+                  item.company.isEmpty ||
+                  item.project.isEmpty,
+            )
             .toList();
         if (missing.isEmpty) return items;
 
@@ -306,8 +319,7 @@ class CuttingRepository implements ICuttingRepository {
               // finish building in Firestore.
               final snapshot = await _collection
                   .where('poNo', isEqualTo: poNo)
-                  .limit(1000)
-                  .get();
+                  .getAll();
               final normalizedArticle = article.trim().toLowerCase();
               final normalizedColor = color.trim().toLowerCase();
               final entries =
@@ -339,10 +351,7 @@ class CuttingRepository implements ICuttingRepository {
       documentId: '',
       body: () async {
         try {
-          final snapshot = await _poCollection
-              .orderBy('poNo')
-              .limit(1000)
-              .get();
+          final snapshot = await _poCollection.orderBy('poNo').getAll();
           return Right(
             snapshot.docs
                 .map((doc) => doc.data()['poNo'] as String? ?? '')
@@ -367,7 +376,7 @@ class CuttingRepository implements ICuttingRepository {
       documentId: '',
       body: () async {
         try {
-          final snapshot = await _poCollection.orderBy('poNo').limit(100).get();
+          final snapshot = await _poCollection.orderBy('poNo').getAll();
           return Right(snapshot.docs.map(POModel.fromSnapshot).toList());
         } on FirebaseException catch (e) {
           return Left('Database error: ${e.message}');
@@ -422,41 +431,16 @@ class CuttingRepository implements ICuttingRepository {
     CuttingEntity item, {
     required bool isUpdate,
   }) async {
-    final ref = isUpdate && item.id != null
-        ? _collection.doc(item.id)
-        : _collection.doc();
-    try {
-      final data = CuttingModel.fromEntity(item).toFirestore();
-      await _db.runTransaction<void>((transaction) async {
-        if (item.cuttingQuantity <= 0) {
-          throw const _CuttingValidationException(
-            'Quantity must be greater than zero',
-          );
-        }
-
-        if (isUpdate) {
-          final snapshot = await transaction.get(ref);
-          if (!snapshot.exists) {
-            throw const _CuttingValidationException(
-              'Cutting record no longer exists',
-            );
-          }
-          transaction.update(ref, data);
-          return;
-        }
-
-        transaction.set(ref, data);
-      });
-      return const Right(null);
-    } on _CuttingValidationException catch (e) {
-      return Left(e.message);
-    } on FirebaseException catch (e) {
-      return Left(
-        '${isUpdate ? 'Failed to update' : 'Failed to create'}: ${e.message}',
-      );
-    } catch (_) {
-      return const Left('An unexpected error occurred');
+    if (isUpdate && (item.id == null || item.id!.isEmpty)) {
+      return const Left('Record ID is required for update');
     }
+    final id = isUpdate ? item.id! : _collection.doc().id;
+    return FirebaseCloudFunctionService.instance.mutate(
+      collection: 'cuttings',
+      action: isUpdate ? 'update' : 'create',
+      id: id,
+      data: CuttingModel.fromEntity(item).toFirestore(),
+    );
   }
 
   /// Reads the PO quantity for the line being cut. PO documents store the line
@@ -480,44 +464,17 @@ class CuttingRepository implements ICuttingRepository {
       value?.toString().trim().toLowerCase() ?? '';
 
   @override
-  Future<Either<String, void>> createCutting(CuttingEntity item) async {
-    try {
-      final ref = _collection.doc();
-      final data = CuttingModel.fromEntity(item).toFirestore();
-      await ref.set(data);
-      return const Right(null);
-    } on FirebaseException catch (e) {
-      return Left('Failed to create: ${e.message}');
-    } catch (e) {
-      return const Left('An unexpected error occurred');
-    }
-  }
+  Future<Either<String, void>> createCutting(CuttingEntity item) =>
+      _writeWithTransaction(item, isUpdate: false);
 
   @override
-  Future<Either<String, void>> update(CuttingEntity item) async {
-    try {
-      await _collection
-          .doc(item.id)
-          .update(CuttingModel.fromEntity(item).toFirestore());
-      return const Right(null);
-    } on FirebaseException catch (e) {
-      return Left('Failed to update: ${e.message}');
-    } catch (e) {
-      return const Left('An unexpected error occurred');
-    }
-  }
+  Future<Either<String, void>> update(CuttingEntity item) =>
+      _writeWithTransaction(item, isUpdate: true);
 
   @override
-  Future<Either<String, void>> delete(String id) async {
-    try {
-      await _collection.doc(id).delete();
-      return const Right(null);
-    } on FirebaseException catch (e) {
-      return Left('Failed to delete: ${e.message}');
-    } catch (e) {
-      return const Left('An unexpected error occurred');
-    }
-  }
+  Future<Either<String, void>> delete(String id) => FirebaseCloudFunctionService
+      .instance
+      .mutate(collection: 'cuttings', action: 'delete', id: id);
 
   @override
   Future<int> getCumulativeCuttingQuantity({
@@ -561,8 +518,7 @@ class CuttingRepository implements ICuttingRepository {
             .where('poNo', isEqualTo: poNo)
             .where('article', isEqualTo: article)
             .where('color', isEqualTo: color)
-            .limit(1000)
-            .get();
+            .getAll();
         return snapshot.docs
             .where((doc) => doc.id != excludingId)
             .fold<int>(
@@ -577,11 +533,4 @@ class CuttingRepository implements ICuttingRepository {
       },
     );
   }
-}
-
-/// Internal marker so a failed transaction validation is surfaced to the user
-/// verbatim instead of being wrapped in a generic Firestore error message.
-class _CuttingValidationException implements Exception {
-  const _CuttingValidationException(this.message);
-  final String message;
 }

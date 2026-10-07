@@ -9,13 +9,15 @@
 /// ============================================================================
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../core/services/firebase/firebase_cloud_function_service.dart';
+
 /// Generates clearly-marked demo records for local/staging testing.
 ///
 /// Each selected module receives [count] records. A run of 3,000 therefore
 /// creates 21,000 documents across the seven ERP collections.
 class DemoDataSeeder {
   DemoDataSeeder({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   static const marker = 'footwear-erp-demo-v1';
   static const batchSize = 450;
@@ -36,23 +38,24 @@ class DemoDataSeeder {
     void Function(String collection, int done, int total)? onProgress,
   }) async {
     if (count < 3000 || count > 5000) {
-      throw ArgumentError.value(count, 'count', 'must be between 3000 and 5000');
+      throw ArgumentError.value(
+        count,
+        'count',
+        'must be between 3000 and 5000',
+      );
     }
 
     for (final collection in collections) {
-      for (var start = 0; start < count; start += batchSize) {
-        final end = (start + batchSize).clamp(0, count);
-        final batch = _firestore.batch();
-        for (var i = start; i < end; i++) {
-          final id = _id(collection, i + 1);
-          batch.set(
-            _firestore.collection(collection).doc(id),
-            _record(collection, i + 1),
-            SetOptions(merge: true),
-          );
-        }
-        await batch.commit();
-        onProgress?.call(collection, end, count);
+      for (var i = 0; i < count; i++) {
+        final id = _id(collection, i + 1);
+        final existing = await _firestore.collection(collection).doc(id).get();
+        await FirebaseCloudFunctionService.instance.call('mutateBusiness', {
+          'collection': collection,
+          'action': existing.exists ? 'update' : 'create',
+          'id': id,
+          'data': _record(collection, i + 1),
+        });
+        onProgress?.call(collection, i + 1, count);
       }
     }
   }
@@ -61,7 +64,7 @@ class DemoDataSeeder {
     void Function(String collection, int deleted)? onProgress,
   }) async {
     var totalDeleted = 0;
-    for (final collection in collections) {
+    for (final collection in collections.reversed) {
       var deleted = 0;
       while (true) {
         final snapshot = await _firestore
@@ -70,11 +73,13 @@ class DemoDataSeeder {
             .limit(batchSize)
             .get();
         if (snapshot.docs.isEmpty) break;
-        final batch = _firestore.batch();
         for (final doc in snapshot.docs) {
-          batch.delete(doc.reference);
+          await FirebaseCloudFunctionService.instance.call('mutateBusiness', {
+            'collection': collection,
+            'action': 'delete',
+            'id': doc.id,
+          });
         }
-        await batch.commit();
         deleted += snapshot.docs.length;
         totalDeleted += snapshot.docs.length;
         onProgress?.call(collection, deleted);
@@ -98,7 +103,7 @@ class DemoDataSeeder {
   }
 
   Map<String, dynamic> _record(String collection, int n) {
-    final poNo = 'DEMO-PO-${((n - 1) % 500 + 1).toString().padLeft(4, '0')}';
+    final poNo = 'DEMO-PO-${n.toString().padLeft(5, '0')}';
     final tagNo = 'DEMO-TAG-${n.toString().padLeft(5, '0')}';
     final company = 'Demo Footwear ${n % 8 + 1}';
     final project = 'Demo Project ${n % 12 + 1}';
@@ -106,13 +111,17 @@ class DemoDataSeeder {
     final color = ['Black', 'White', 'Brown', 'Navy', 'Red'][n % 5];
     final factory = 'Demo Factory ${n % 6 + 1}';
     final quantity = 100 + (n % 901);
-    final date = Timestamp.fromDate(DateTime(2025, 1, 1).add(Duration(days: n % 365)));
+    final date = Timestamp.fromDate(
+      DateTime(2025, 1, 1).add(Duration(days: n % 365)),
+    );
 
     final base = <String, dynamic>{
       'demoSeed': marker,
       'source': 'demo_seed',
       'sl': n,
+      'company': company,
       'companyName': company,
+      'project': project,
       'projectName': project,
       'articleNo': article,
       'article': article,
@@ -128,9 +137,9 @@ class DemoDataSeeder {
       case 'master_lc':
         return {
           ...base,
-          'tagNo': 'DEMO-LC-${n.toString().padLeft(5, '0')}',
+          'tagNo': tagNo,
           'lcNo': 'DEMO-LC-${n.toString().padLeft(5, '0')}',
-          'lcDate': date,
+          'masterLcDate': date,
           'buyerName': ['Demo Buyer A', 'Demo Buyer B', 'Demo Buyer C'][n % 3],
           'currency': 'USD',
           'quantity': quantity,
@@ -144,7 +153,7 @@ class DemoDataSeeder {
           ...base,
           'poNo': poNo,
           'tagNo': tagNo,
-          'masterLcTagNo': 'DEMO-LC-${((n - 1) % 500 + 1).toString().padLeft(5, '0')}',
+          'masterLcTagNo': tagNo,
           'poDate': date,
           'quantity': quantity,
           'totalQuantity': quantity,

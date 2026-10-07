@@ -10,6 +10,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:get_it/get_it.dart';
+
+import '../../../domain/repositories/i_cutting_repository.dart';
 import '../../../domain/entities/cutting_entity.dart';
 import '../../blocs/cutting/cutting_bloc.dart';
 import '../../blocs/cutting/cutting_event.dart';
@@ -30,6 +33,7 @@ class _CuttingListScreenState extends State<CuttingListScreen> {
   final Map<String, String> _columnFilters = {};
   int _pageSize = 20;
   int _currentPage = 0;
+  bool _loadingReport = false;
 
   void _setColumnFilter(String key, String value) {
     setState(() {
@@ -59,13 +63,15 @@ class _CuttingListScreenState extends State<CuttingListScreen> {
 
   bool _matches(CuttingEntity item) {
     final value = query.toLowerCase();
-    final matchesSearch = item.poNo.toLowerCase().contains(value) ||
+    final matchesSearch =
+        item.poNo.toLowerCase().contains(value) ||
         item.voucherNo.toLowerCase().contains(value) ||
         item.tagNo.toLowerCase().contains(value) ||
         item.poTagNo.toLowerCase().contains(value);
     return matchesSearch &&
         ExcelColumnFilterHeader.matches(_columnFilters, {
-          'date': '${item.cuttingDate.day.toString().padLeft(2, '0')}/${item.cuttingDate.month.toString().padLeft(2, '0')}/${item.cuttingDate.year}',
+          'date':
+              '${item.cuttingDate.day.toString().padLeft(2, '0')}/${item.cuttingDate.month.toString().padLeft(2, '0')}/${item.cuttingDate.year}',
           'voucher': item.voucherNo,
           'factory': item.factoryName,
           'company': item.company,
@@ -88,10 +94,19 @@ class _CuttingListScreenState extends State<CuttingListScreen> {
     context.push('/cutting/edit/${item.id}', extra: item);
   }
 
-  void _openDateWiseReport(List<CuttingEntity> items) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => CuttingDateReportScreen(items: List.of(items)),
+  Future<void> _openDateWiseReport() async {
+    setState(() => _loadingReport = true);
+    final result = await GetIt.I<ICuttingRepository>().getCuttingList(limit: 0);
+    if (!mounted) return;
+    setState(() => _loadingReport = false);
+    result.fold(
+      (error) =>
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(error))),
+      (items) => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CuttingDateReportScreen(items: List.of(items)),
+        ),
       ),
     );
   }
@@ -166,10 +181,8 @@ class _CuttingListScreenState extends State<CuttingListScreen> {
             value: _pageSize,
             items: const [20, 50, 100]
                 .map(
-                  (size) => DropdownMenuItem(
-                    value: size,
-                    child: Text('$size rows'),
-                  ),
+                  (size) =>
+                      DropdownMenuItem(value: size, child: Text('$size rows')),
                 )
                 .toList(),
             onChanged: (value) {
@@ -225,10 +238,7 @@ class _CuttingListScreenState extends State<CuttingListScreen> {
         }
         final totalPages = (items.length / _pageSize).ceil();
         final page = _currentPage.clamp(0, totalPages - 1);
-        final pageItems = items
-            .skip(page * _pageSize)
-            .take(_pageSize)
-            .toList();
+        final pageItems = items.skip(page * _pageSize).take(_pageSize).toList();
         return Column(
           children: [
             _reportToolbar(loadedItems),
@@ -248,82 +258,84 @@ class _CuttingListScreenState extends State<CuttingListScreen> {
                       controller: horizontalScroll,
                       scrollDirection: Axis.horizontal,
                       child: DataTable(
-                    columnSpacing: 14,
-                    dataRowMinHeight: 40,
-                    dataRowMaxHeight: 50,
-                    headingRowColor: WidgetStatePropertyAll(
-                      Theme.of(context).colorScheme.surfaceContainerHighest,
-                    ),
-                    columns: [
-                      _filterColumn('Cutting Date', 'date'),
-                      _filterColumn('Voucher No', 'voucher'),
-                      _filterColumn('Factory', 'factory'),
-                      _filterColumn('Company', 'company'),
-                      _filterColumn('Project', 'project'),
-                      _filterColumn('PO No', 'po'),
-                      _filterColumn('Article', 'article'),
-                      _filterColumn('Color', 'color'),
-                      _filterColumn('Cutting Qty', 'quantity'),
-                      _filterColumn('Entry Person', 'entry'),
-                      DataColumn(label: Text('Action')),
-                    ],
-                    rows: pageItems
-                        .asMap()
-                        .entries
-                        .map(
-                          (entry) => DataRow(
-                            color: WidgetStatePropertyAll(
-                              entry.key.isEven ? Colors.grey.shade50 : null,
-                            ),
-                            onSelectChanged: entry.value.id == null
-                                ? null
-                                : (_) => _openDetail(entry.value),
-                            cells: [
-                              DataCell(
-                                _cell(
-                                  '${entry.value.cuttingDate.day.toString().padLeft(2, '0')}/${entry.value.cuttingDate.month.toString().padLeft(2, '0')}/${entry.value.cuttingDate.year}',
+                        columnSpacing: 14,
+                        dataRowMinHeight: 40,
+                        dataRowMaxHeight: 50,
+                        headingRowColor: WidgetStatePropertyAll(
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                        ),
+                        columns: [
+                          _filterColumn('Cutting Date', 'date'),
+                          _filterColumn('Voucher No', 'voucher'),
+                          _filterColumn('Factory', 'factory'),
+                          _filterColumn('Company', 'company'),
+                          _filterColumn('Project', 'project'),
+                          _filterColumn('PO No', 'po'),
+                          _filterColumn('Article', 'article'),
+                          _filterColumn('Color', 'color'),
+                          _filterColumn('Cutting Qty', 'quantity'),
+                          _filterColumn('Entry Person', 'entry'),
+                          DataColumn(label: Text('Action')),
+                        ],
+                        rows: pageItems
+                            .asMap()
+                            .entries
+                            .map(
+                              (entry) => DataRow(
+                                color: WidgetStatePropertyAll(
+                                  entry.key.isEven ? Colors.grey.shade50 : null,
                                 ),
-                              ),
-                              DataCell(_cell(entry.value.voucherNo)),
-                              DataCell(_cell(entry.value.factoryName)),
-                              DataCell(_cell(entry.value.company)),
-                              DataCell(_cell(entry.value.project)),
-                              DataCell(_cell(entry.value.poNo)),
-                              DataCell(_cell(entry.value.article)),
-                              DataCell(_cell(entry.value.color)),
-                              DataCell(
-                                _cell(entry.value.cuttingQuantity.toString()),
-                              ),
-                              DataCell(_cell(entry.value.entryPerson)),
-                              DataCell(
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      tooltip: 'Edit Cutting',
-                                      iconSize: 20,
-                                      color: Colors.blue,
-                                      icon: const Icon(Icons.edit),
-                                      onPressed: entry.value.id == null
-                                          ? null
-                                          : () => _openEdit(entry.value),
+                                onSelectChanged: entry.value.id == null
+                                    ? null
+                                    : (_) => _openDetail(entry.value),
+                                cells: [
+                                  DataCell(
+                                    _cell(
+                                      '${entry.value.cuttingDate.day.toString().padLeft(2, '0')}/${entry.value.cuttingDate.month.toString().padLeft(2, '0')}/${entry.value.cuttingDate.year}',
                                     ),
-                                    IconButton(
-                                      tooltip: 'Delete Cutting',
-                                      iconSize: 20,
-                                      color: Colors.red,
-                                      icon: const Icon(Icons.delete),
-                                      onPressed: entry.value.id == null
-                                          ? null
-                                          : () => _delete(entry.value),
+                                  ),
+                                  DataCell(_cell(entry.value.voucherNo)),
+                                  DataCell(_cell(entry.value.factoryName)),
+                                  DataCell(_cell(entry.value.company)),
+                                  DataCell(_cell(entry.value.project)),
+                                  DataCell(_cell(entry.value.poNo)),
+                                  DataCell(_cell(entry.value.article)),
+                                  DataCell(_cell(entry.value.color)),
+                                  DataCell(
+                                    _cell(
+                                      entry.value.cuttingQuantity.toString(),
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                  DataCell(_cell(entry.value.entryPerson)),
+                                  DataCell(
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          tooltip: 'Edit Cutting',
+                                          iconSize: 20,
+                                          color: Colors.blue,
+                                          icon: const Icon(Icons.edit),
+                                          onPressed: entry.value.id == null
+                                              ? null
+                                              : () => _openEdit(entry.value),
+                                        ),
+                                        IconButton(
+                                          tooltip: 'Delete Cutting',
+                                          iconSize: 20,
+                                          color: Colors.red,
+                                          icon: const Icon(Icons.delete),
+                                          onPressed: entry.value.id == null
+                                              ? null
+                                              : () => _delete(entry.value),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        )
-                        .toList(),
+                            )
+                            .toList(),
                       ),
                     ),
                   ),
@@ -393,7 +405,7 @@ class _CuttingListScreenState extends State<CuttingListScreen> {
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         FilledButton.icon(
-          onPressed: () => _openDateWiseReport(items),
+          onPressed: _loadingReport ? null : _openDateWiseReport,
           icon: const Icon(Icons.summarize_outlined, size: 18),
           label: const Text('View Date-wise Report'),
         ),
@@ -401,7 +413,8 @@ class _CuttingListScreenState extends State<CuttingListScreen> {
     ),
   );
 
-  Widget _cell(String value) => Text(value, style: const TextStyle(fontSize: 12));
+  Widget _cell(String value) =>
+      Text(value, style: const TextStyle(fontSize: 12));
 
   DataColumn _filterColumn(String label, String key) {
     return DataColumn(

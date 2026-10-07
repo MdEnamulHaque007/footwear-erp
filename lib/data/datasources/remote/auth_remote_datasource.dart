@@ -8,12 +8,14 @@
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
 import '../../../core/services/activity/activity_log_service.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/services/firebase/firebase_cloud_function_service.dart';
 import '../../models/user/user_model.dart';
 
 class AuthRemoteDataSource {
@@ -133,9 +135,12 @@ class AuthRemoteDataSource {
             .get()
             .timeout(const Duration(seconds: 10));
         if (!snapshot.exists) {
-          throw ProfileMissingException(user.uid);
+          return UserModel.fromFirebase(user, null);
         }
-        return UserModel.fromFirestore(snapshot);
+        final profile = UserModel.fromFirestore(snapshot);
+        if (!profile.isActive)
+          throw FirebaseAuthException(code: 'user-disabled');
+        return profile;
       },
     );
   }
@@ -145,6 +150,8 @@ class AuthRemoteDataSource {
     try {
       return await _loadProfile(user)
           .timeout(const Duration(seconds: 10), onTimeout: () => null);
+    } on FirebaseAuthException {
+      rethrow;
     } on ProfileMissingException {
       // Let the caller decide (the bootstrap flow needs to see this).
       rethrow;
@@ -154,18 +161,7 @@ class AuthRemoteDataSource {
     }
   }
 
-  /// Creates the signed-in account's own `users/{uid}` profile as the first
-  /// admin. Used once, on initial setup.
-  ///
-  /// A **single** write: the profile is created complete. An earlier version
-  /// wrote a transient `bootstrap: true` marker and then deleted it in a second
-  /// call, but that second write was denied by the `update` rule (which only
-  /// allows `lastLogin` / `displayName`) and was mis-reported as "an admin
-  /// profile already exists" — even though the profile had in fact been
-  /// created. Writing once removes the failure mode entirely.
-  ///
-  /// Returns [Left] with a readable message when the rules reject the write,
-  /// which happens once an admin profile already exists.
+  /// Calls the server's owner-authorized, globally one-time admin setup.
   Future<Either<String, UserModel>> bootstrapAdminProfile({
     required String displayName,
   }) async {
@@ -177,27 +173,19 @@ class AuthRemoteDataSource {
         ? 'System Admin'
         : displayName.trim();
     try {
-      final doc = _firestore
-          .collection(AppConstants.collectionUsers)
-          .doc(user.uid);
-      final model = UserModel(
-        uid: user.uid,
-        email: user.email ?? '',
-        displayName: name,
-        role: AppConstants.roleAdmin,
-        permissions: const {},
-        isEmailVerified: user.emailVerified,
-        isActive: true,
-        createdAt: DateTime.now(),
-        lastLogin: DateTime.now(),
-      );
-      await doc.set(model.toFirestore()).timeout(const Duration(seconds: 10));
+      await FirebaseCloudFunctionService.instance.call('bootstrapAdmin', {
+        'displayName': name,
+      });
+      final model = await _loadProfile(user);
+      if (model == null || model.role != AppConstants.roleAdmin) {
+        return const Left('Administrator profile could not be loaded.');
+      }
       return Right(model);
     } on FirebaseException catch (e) {
       if (e.code == 'permission-denied') {
         return const Left(
-          'An admin profile already exists, so the bootstrap is no longer '
-          'allowed. Ask an existing admin to grant you access.',
+          'Initial setup requires authorization from the Firebase project owner. '
+          'Ask an existing admin to grant you access.',
         );
       }
       return Left('Unable to create the admin profile: ${e.message}');

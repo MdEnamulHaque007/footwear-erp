@@ -7,8 +7,13 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../core/services/firebase/firestore_query_paging.dart';
 import '../../core/services/activity/activity_log_service.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../core/services/firebase/firebase_cloud_function_service.dart';
+
 import 'package:dartz/dartz.dart';
 
 import '../../core/constants/app_constants.dart';
@@ -129,8 +134,7 @@ class SewingRepository implements ISewingRepository {
               // view also works before composite indexes finish building in Firestore.
               final snapshot = await _collection
                   .where('poNo', isEqualTo: poNo)
-                  .limit(1000)
-                  .get();
+                  .getAll();
               final normalizedArticle = _normalize(article);
               final normalizedColor = _normalize(color);
               final entries =
@@ -161,7 +165,7 @@ class SewingRepository implements ISewingRepository {
       documentId: '',
       body: () async {
         try {
-          final snapshot = await _poCollection.orderBy('poNo').limit(100).get();
+          final snapshot = await _poCollection.orderBy('poNo').getAll();
           return Right(
             snapshot.docs
                 .map((doc) => doc.data()['poNo'] as String? ?? '')
@@ -191,7 +195,7 @@ class SewingRepository implements ISewingRepository {
       documentId: '',
       body: () async {
         try {
-          final snapshot = await _cuttingCollectionRef.limit(1000).get();
+          final snapshot = await _cuttingCollectionRef.getAll();
           final poNos =
               snapshot.docs
                   .map((doc) => _normalize(doc.data()['poNo']))
@@ -217,7 +221,7 @@ class SewingRepository implements ISewingRepository {
       documentId: '',
       body: () async {
         try {
-          final snapshot = await _poCollection.orderBy('poNo').limit(100).get();
+          final snapshot = await _poCollection.orderBy('poNo').getAll();
           return Right(snapshot.docs.map(POModel.fromSnapshot).toList());
         } on FirebaseException catch (e) {
           return Left('Database error: ${e.message}');
@@ -275,105 +279,30 @@ class SewingRepository implements ISewingRepository {
     SewingEntity item, {
     required bool isUpdate,
   }) async {
-    final ref = isUpdate && item.id != null
-        ? _collection.doc(item.id)
-        : _collection.doc();
-    try {
-      // 1 + 2. Cumulative Cutting (cuttingDate <= sewingDate) and cumulative
-      // Sewing (self-excluded on update) for this PO line.
-      final cuttingQty = await getCumulativeCuttingQty(
-        poNo: item.poNo,
-        article: item.article,
-        color: item.color,
-        upToDate: item.sewingDate,
-      );
-      final sewingQty = await getCumulativeSewingQty(
-        poNo: item.poNo,
-        article: item.article,
-        color: item.color,
-        excludeId: ref.id,
-      );
-
-      // 3. Validate against the availability snapshot.
-      final available = cuttingQty - sewingQty;
-      final quantity = item.effectiveQuantity;
-      if (quantity <= 0) {
-        return const Left('Quantity must be greater than zero');
-      }
-      if (quantity > available) {
-        return Left(
-          'Sewing quantity exceeds available cutting quantity '
-          '(available: $available)',
-        );
-      }
-
-      // 4. Atomic write, re-checking the persisted document inside the
-      // transaction so a concurrent edit cannot silently over-consume.
-      final data = SewingModel.fromEntity(item).toFirestore();
-      await _db.runTransaction<void>((transaction) async {
-        if (isUpdate) {
-          final snapshot = await transaction.get(ref);
-          if (!snapshot.exists) {
-            throw const _SewingValidationException(
-              'Sewing record no longer exists',
-            );
-          }
-          transaction.update(ref, data);
-        } else {
-          transaction.set(ref, data);
-        }
-      });
-      return const Right(null);
-    } on _SewingValidationException catch (e) {
-      return Left(e.message);
-    } on FirebaseException catch (e) {
-      return Left(
-        '${isUpdate ? 'Failed to update' : 'Failed to create'}: ${e.message}',
-      );
-    } catch (_) {
-      return const Left('An unexpected error occurred');
+    if (isUpdate && (item.id == null || item.id!.isEmpty)) {
+      return const Left('Record ID is required for update');
     }
+    final id = isUpdate ? item.id! : _collection.doc().id;
+    return FirebaseCloudFunctionService.instance.mutate(
+      collection: 'sewings',
+      action: isUpdate ? 'update' : 'create',
+      id: id,
+      data: SewingModel.fromEntity(item).toFirestore(),
+    );
   }
 
   @override
-  Future<Either<String, void>> createSewing(SewingEntity item) async {
-    try {
-      final ref = _collection.doc();
-      final data = SewingModel.fromEntity(item).toFirestore();
-      await ref.set(data);
-      return const Right(null);
-    } on FirebaseException catch (e) {
-      return Left('Failed to create: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
-  }
+  Future<Either<String, void>> createSewing(SewingEntity item) =>
+      _writeWithTransaction(item, isUpdate: false);
 
   @override
-  Future<Either<String, void>> update(SewingEntity item) async {
-    try {
-      final data = SewingModel.fromEntity(item).toFirestore();
-      data['updatedAt'] = Timestamp.now();
-      await _collection.doc(item.id).update(data);
-      return const Right(null);
-    } on FirebaseException catch (e) {
-      return Left('Failed to update: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
-  }
+  Future<Either<String, void>> update(SewingEntity item) =>
+      _writeWithTransaction(item, isUpdate: true);
 
   @override
-  Future<Either<String, void>> delete(String id) async {
-    try {
-      await _collection.doc(id).delete();
-      return const Right(null);
-    } on FirebaseException catch (e) {
-      return Left('Failed to delete: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
-  }
+  Future<Either<String, void>> delete(String id) => FirebaseCloudFunctionService
+      .instance
+      .mutate(collection: 'sewings', action: 'delete', id: id);
 
   @override
   Future<int> getCumulativeCuttingQty({
@@ -392,8 +321,7 @@ class SewingRepository implements ISewingRepository {
         // before the `poNo + article + color + cuttingDate` index is deployed.
         final snapshot = await _cuttingCollection
             .where('poNo', isEqualTo: poNo)
-            .limit(1000)
-            .get();
+            .getAll();
         return _cumulativeCutting(
           snapshot.docs,
           article: article,
@@ -411,6 +339,7 @@ class SewingRepository implements ISewingRepository {
     required String article,
     required String color,
     String? excludeId,
+    DateTime? upToDate,
   }) async {
     return ActivityLogService.instance.trackRead<int>(
       module: 'sewing',
@@ -419,10 +348,16 @@ class SewingRepository implements ISewingRepository {
       body: () async {
         final snapshot = await _collection
             .where('poNo', isEqualTo: poNo)
-            .limit(1000)
-            .get();
+            .getAll();
         return _cumulativeSewing(
-          snapshot.docs,
+          snapshot.docs.where((doc) {
+            if (upToDate == null) return true;
+            final date = _date(doc.data()['sewingDate']);
+            return date == null ||
+                !DateTime(date.year, date.month, date.day).isAfter(
+                  DateTime(upToDate.year, upToDate.month, upToDate.day),
+                );
+          }),
           article: article,
           color: color,
           excludingId: excludeId,
@@ -523,11 +458,4 @@ class SewingRepository implements ISewingRepository {
     if (value is String) return DateTime.tryParse(value);
     return null;
   }
-}
-
-/// Internal marker so a failed transaction validation is surfaced to the user
-/// verbatim instead of being wrapped in a generic Firestore error message.
-class _SewingValidationException implements Exception {
-  const _SewingValidationException(this.message);
-  final String message;
 }

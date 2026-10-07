@@ -7,8 +7,8 @@
   },
   "scripts": {
     "test": "node --test test/*.test.js",
-    "check": "node --check index.js && node --check activity.js",
-    "test:integration": "firebase emulators:exec --config ../firebase.json --project demo-footwear-activity --only firestore,auth \"node --test test/firestore.integration.js\""
+    "check": "node --check index.js && node --check activity.js && node --check workflow.js",
+    "test:integration": "firebase emulators:exec --config ../firebase.json --project demo-footwear-activity --only firestore,auth \"node --test --test-concurrency=1 test/firestore.integration.js test/workflow.integration.js\""
   },
   "dependencies": {
     "firebase-admin": "^13.0.0",

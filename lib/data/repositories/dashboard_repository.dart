@@ -7,7 +7,10 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../core/services/firebase/firestore_query_paging.dart';
+import '../../domain/services/record_metrics.dart';
 import '../../core/services/activity/activity_log_service.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
 import 'package:intl/intl.dart';
@@ -25,7 +28,7 @@ import '../../domain/repositories/i_dashboard_repository.dart';
 
 /// Firestore-backed dashboard aggregates.
 ///
-/// Every stage collection is read in parallel with a hard [queryLimit] ceiling,
+/// Stage collections are read in parallel using complete paged queries,
 /// and all numeric fields are coerced defensively because older records and
 /// Google Sheets imports may carry numbers as strings.
 class DashboardRepository implements IDashboardRepository {
@@ -33,21 +36,6 @@ class DashboardRepository implements IDashboardRepository {
     : _db = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _db;
-
-  /// Upper bound per collection read. The dashboard is an aggregate view, so a
-  /// capped sample is preferred over an unbounded scan.
-  /// Dashboard panels are summaries, not exports. Keeping each read bounded
-  /// avoids repeatedly downloading large collections on first paint.
-  static const int queryLimit = 100;
-  static const Duration _statsCacheTtl = Duration(minutes: 15);
-
-  DashboardStatsEntity? _statsCache;
-  DateTime? _statsCacheAt;
-
-  bool get _hasFreshStatsCache =>
-      _statsCache != null &&
-      _statsCacheAt != null &&
-      DateTime.now().difference(_statsCacheAt!) < _statsCacheTtl;
 
   /// Series names and order used by the trend chart.
   static const List<String> _trendSeries = [
@@ -75,6 +63,14 @@ class DashboardRepository implements IDashboardRepository {
   CollectionReference<Map<String, dynamic>> get _users =>
       _db.collection(AppConstants.collectionUsers);
 
+  Future<CompleteQueryResult> _loadUsers() async {
+    try {
+      return await _users.getAll();
+    } on FirebaseException catch (error) {
+      if (error.code != 'permission-denied') rethrow;
+      return const CompleteQueryResult([]);
+    }
+  }
   // ---------------------------------------------------------------- stats
 
   @override
@@ -87,19 +83,15 @@ class DashboardRepository implements IDashboardRepository {
       documentId: '',
       body: () async {
         try {
-          if (_hasFreshStatsCache) {
-            return Right(_statsCache!);
-          }
-
           final results = await Future.wait([
-            _masterLc.limit(queryLimit).get(),
-            _po.limit(queryLimit).get(),
-            _cutting.limit(queryLimit).get(),
-            _sewing.limit(queryLimit).get(),
-            _production.limit(queryLimit).get(),
-            _issue.limit(queryLimit).get(),
-            _export.limit(queryLimit).get(),
-            _users.limit(queryLimit).get(),
+            _masterLc.getAll(),
+            _po.getAll(),
+            _cutting.getAll(),
+            _sewing.getAll(),
+            _production.getAll(),
+            _issue.getAll(),
+            _export.getAll(),
+            _loadUsers(),
           ]);
           final masterLc = results[0].docs.map((d) => d.data());
           final po = results[1].docs.map((d) => d.data());
@@ -114,7 +106,11 @@ class DashboardRepository implements IDashboardRepository {
             masterLcCount: results[0].docs.length,
             masterLcValue: _sum(masterLc, 'masterLcValue'),
             poCount: results[1].docs.length,
-            poValue: _sum(po, 'poValue'),
+            poValue: po.fold<double>(
+              0,
+              (total, data) =>
+                  total + RecordMetrics.value('purchase_orders', data),
+            ),
             cuttingCount: results[2].docs.length,
             cuttingQuantity: _sum(cutting, 'cuttingQuantity').toInt(),
             sewingCount: results[3].docs.length,
@@ -132,8 +128,6 @@ class DashboardRepository implements IDashboardRepository {
                 .where((d) => _bool(d['isActive'], fallback: true))
                 .length,
           );
-          _statsCache = stats;
-          _statsCacheAt = DateTime.now();
           return Right(stats);
         } on FirebaseException catch (e) {
           return Left('Database error: ${e.message}');
@@ -291,8 +285,7 @@ class DashboardRepository implements IDashboardRepository {
     try {
       final snapshot = await collection
           .where(dateField, isGreaterThanOrEqualTo: from)
-          .limit(queryLimit)
-          .get();
+          .getAll();
       final docs = snapshot.docs.map((d) => d.data());
       return _Totals(quantity: _sum(docs, quantityField).toInt());
     } catch (_) {
@@ -366,8 +359,7 @@ class DashboardRepository implements IDashboardRepository {
     try {
       final snapshot = await collection
           .where(dateField, isGreaterThanOrEqualTo: from)
-          .limit(queryLimit)
-          .get();
+          .getAll();
       final grouped = <String, double>{};
       for (final doc in snapshot.docs) {
         final data = doc.data();
@@ -425,7 +417,7 @@ class DashboardRepository implements IDashboardRepository {
     String quantityField,
   ) async {
     try {
-      final snapshot = await collection.limit(queryLimit).get();
+      final snapshot = await collection.getAll();
       final grouped = <String, double>{};
       for (final doc in snapshot.docs) {
         final data = doc.data();
@@ -524,8 +516,7 @@ class DashboardRepository implements IDashboardRepository {
                   .collection(collection)
                   .where(dateField, isGreaterThanOrEqualTo: stampFrom)
                   .where(dateField, isLessThanOrEqualTo: stampTo)
-                  .limit(queryLimit)
-                  .get();
+                  .getAll();
 
               // Month buckets keyed by sortable `yyyy-MM-01` so ordering needs no date
               // map.
@@ -611,8 +602,7 @@ class DashboardRepository implements IDashboardRepository {
                   .where(dateFields[index], isLessThanOrEqualTo: to)
                   // An advanced matrix only runs after an explicit user action.
                   // Keep the broader cap requested for that deliberate analysis.
-                  .limit(1000)
-                  .get(),
+                  .getAll(),
             ),
           );
 
@@ -635,8 +625,8 @@ class DashboardRepository implements IDashboardRepository {
                 collection: collection,
               );
               final z = valueType == ValueType.quantity
-                  ? _readAnyQuantity(data)
-                  : _readAnyValue(data);
+                  ? RecordMetrics.quantity(collection, data)
+                  : RecordMetrics.value(collection, data);
               values.putIfAbsent(x, () => <String, double>{});
               values[x]![y] = (values[x]![y] ?? 0) + z;
             }
@@ -701,41 +691,6 @@ class DashboardRepository implements IDashboardRepository {
     return _text(value, fallback: 'Unknown');
   }
 
-  static double _readAnyQuantity(Map<String, dynamic> data) {
-    const fields = [
-      'cuttingQuantity',
-      'sewingQuantity',
-      'productionQuantity',
-      'quantity',
-      'issueQuantity',
-      'exportQuantity',
-      'totalQuantity',
-      'masterLcQuantity',
-    ];
-    for (final field in fields) {
-      if (data[field] != null) return _double(data[field]);
-    }
-    return 0;
-  }
-
-  static double _readAnyValue(Map<String, dynamic> data) {
-    const fields = [
-      'cuttingValue',
-      'sewingValue',
-      'productionValue',
-      'issueValue',
-      'exportValue',
-      'totalValue',
-      'poValue',
-      'masterLcValue',
-      'lcValue',
-    ];
-    for (final field in fields) {
-      if (data[field] != null) return _double(data[field]);
-    }
-    return 0;
-  }
-
   /// Reads a quantity defensively.
   ///
   /// Several collections persist a canonical field *and* a legacy `quantity`
@@ -751,7 +706,19 @@ class DashboardRepository implements IDashboardRepository {
 
   /// Sums a numeric field across records, coercing strings and ignoring nulls.
   static double _sum(Iterable<Map<String, dynamic>> docs, String field) =>
-      docs.fold(0.0, (running, doc) => running + _double(doc[field]));
+      docs.fold(
+        0.0,
+        (running, doc) =>
+            running +
+            _double(
+              doc[field] ??
+                  (field.endsWith('Quantity')
+                      ? doc['quantity']
+                      : field == 'quantity'
+                      ? doc['productionQuantity']
+                      : null),
+            ),
+      );
 
   static double _double(Object? value) {
     if (value is num) return value.toDouble();

@@ -7,8 +7,10 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../core/services/activity/activity_log_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
+
 import '../../core/constants/app_constants.dart';
 import '../../domain/entities/issue_entity.dart';
 import '../../domain/repositories/i_issue_repository.dart';
@@ -34,47 +36,72 @@ class IssueRepository implements IIssueRepository {
     int page = 0,
     int limit = 20,
   }) async {
-    try {
-      if (page == 0) _lastDoc = null;
-      var query = _collection.orderBy('issueDate', descending: true);
-      if (page > 0 && _lastDoc != null) {
-        query = query.startAfterDocument(_lastDoc!);
-      }
-      final snapshot = await query.limit(limit).get();
-      if (snapshot.docs.isNotEmpty) _lastDoc = snapshot.docs.last;
-      return Right(snapshot.docs.map(IssueModel.fromSnapshot).toList());
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<IssueModel>>>(
+          module: 'issue',
+          operation: 'getIssueList',
+          documentId: '',
+          body: () async {
+            try {
+              if (page == 0) _lastDoc = null;
+              var query = _collection.orderBy('issueDate', descending: true);
+              if (page > 0 && _lastDoc != null) {
+                query = query.startAfterDocument(_lastDoc!);
+              }
+              final snapshot = await query.limit(limit).get();
+              if (snapshot.docs.isNotEmpty) _lastDoc = snapshot.docs.last;
+              return Right(snapshot.docs.map(IssueModel.fromSnapshot).toList());
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   @override
   Future<Either<String, List<IssueModel>>> byPoTag(String poTagNo) async {
-    try {
-      final snapshot = await _collection
-          .where('tagNo', isEqualTo: poTagNo)
-          .orderBy('sl')
-          .get();
-      return Right(snapshot.docs.map(IssueModel.fromSnapshot).toList());
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<IssueModel>>>(
+          module: 'issue',
+          operation: 'byPoTag',
+          documentId: '',
+          body: () async {
+            try {
+              final snapshot = await _collection
+                  .where('tagNo', isEqualTo: poTagNo)
+                  .orderBy('sl')
+                  .get();
+              return Right(snapshot.docs.map(IssueModel.fromSnapshot).toList());
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   @override
   Future<Either<String, IssueModel?>> byId(String id) async {
-    try {
-      final snapshot = await _collection.doc(id).get();
-      return Right(snapshot.exists ? IssueModel.fromSnapshot(snapshot) : null);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance.trackRead<Either<String, IssueModel?>>(
+      module: 'issue',
+      operation: 'byId',
+      documentId: id,
+      body: () async {
+        try {
+          final snapshot = await _collection.doc(id).get();
+          return Right(
+            snapshot.exists ? IssueModel.fromSnapshot(snapshot) : null,
+          );
+        } on FirebaseException catch (e) {
+          return Left('Database error: ${e.message}');
+        } catch (_) {
+          return const Left('An unexpected error occurred');
+        }
+      },
+    );
   }
 
   @override
@@ -83,31 +110,39 @@ class IssueRepository implements IIssueRepository {
     required String article,
     required String color,
   }) async {
-    try {
-      // Index-independent: Article and Color are filtered locally so the detail
-      // view also works before composite indexes finish building in Firestore.
-      final snapshot = await _collection
-          .where('poNo', isEqualTo: poNo)
-          .limit(1000)
-          .get();
-      final normalizedArticle = _normalize(article);
-      final normalizedColor = _normalize(color);
-      final entries =
-          snapshot.docs
-              .map(IssueModel.fromSnapshot)
-              .where(
-                (item) =>
-                    _normalize(item.article) == normalizedArticle &&
-                    _normalize(item.color) == normalizedColor,
-              )
-              .toList()
-            ..sort((a, b) => b.issueDate.compareTo(a.issueDate));
-      return Right(entries);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<IssueModel>>>(
+          module: 'issue',
+          operation: 'byLine',
+          documentId: '',
+          body: () async {
+            try {
+              // Index-independent: Article and Color are filtered locally so the detail
+              // view also works before composite indexes finish building in Firestore.
+              final snapshot = await _collection
+                  .where('poNo', isEqualTo: poNo)
+                  .limit(1000)
+                  .get();
+              final normalizedArticle = _normalize(article);
+              final normalizedColor = _normalize(color);
+              final entries =
+                  snapshot.docs
+                      .map(IssueModel.fromSnapshot)
+                      .where(
+                        (item) =>
+                            _normalize(item.article) == normalizedArticle &&
+                            _normalize(item.color) == normalizedColor,
+                      )
+                      .toList()
+                    ..sort((a, b) => b.issueDate.compareTo(a.issueDate));
+              return Right(entries);
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   /// Distinct PO No list taken from the Production entries.
@@ -115,21 +150,28 @@ class IssueRepository implements IIssueRepository {
   /// Issue is only valid for a PO that has actually been produced.
   @override
   Future<Either<String, List<String>>> getProductionEntryPONoList() async {
-    try {
-      final snapshot = await _productionCollection.limit(1000).get();
-      final poNos =
-          snapshot.docs
-              .map((doc) => _string(doc.data()['poNo']))
-              .where((poNo) => poNo.isNotEmpty)
-              .toSet()
-              .toList()
-            ..sort();
-      return Right(poNos);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance.trackRead<Either<String, List<String>>>(
+      module: 'issue',
+      operation: 'getProductionEntryPONoList',
+      documentId: '',
+      body: () async {
+        try {
+          final snapshot = await _productionCollection.limit(1000).get();
+          final poNos =
+              snapshot.docs
+                  .map((doc) => _string(doc.data()['poNo']))
+                  .where((poNo) => poNo.isNotEmpty)
+                  .toSet()
+                  .toList()
+                ..sort();
+          return Right(poNos);
+        } on FirebaseException catch (e) {
+          return Left('Database error: ${e.message}');
+        } catch (_) {
+          return const Left('An unexpected error occurred');
+        }
+      },
+    );
   }
 
   /// Distinct Article + Color pairs recorded in the Production entries of
@@ -138,57 +180,72 @@ class IssueRepository implements IIssueRepository {
   Future<Either<String, List<ProductionLine>>> getProductionEntryLines(
     String poNo,
   ) async {
-    try {
-      final snapshot = await _productionCollection
-          .where('poNo', isEqualTo: poNo)
-          .limit(1000)
-          .get();
-      final lines = <String, ProductionLine>{};
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        final article = _string(data['article']);
-        final color = _string(data['color']);
-        if (article.isEmpty || color.isEmpty) continue;
-        final key = '${article.toLowerCase()}|${color.toLowerCase()}';
-        lines.putIfAbsent(
-          key,
-          () => ProductionLine(article: article, color: color),
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<ProductionLine>>>(
+          module: 'issue',
+          operation: 'getProductionEntryLines',
+          documentId: '',
+          body: () async {
+            try {
+              final snapshot = await _productionCollection
+                  .where('poNo', isEqualTo: poNo)
+                  .limit(1000)
+                  .get();
+              final lines = <String, ProductionLine>{};
+              for (final doc in snapshot.docs) {
+                final data = doc.data();
+                final article = _string(data['article']);
+                final color = _string(data['color']);
+                if (article.isEmpty || color.isEmpty) continue;
+                final key = '${article.toLowerCase()}|${color.toLowerCase()}';
+                lines.putIfAbsent(
+                  key,
+                  () => ProductionLine(article: article, color: color),
+                );
+              }
+              final result = lines.values.toList()
+                ..sort((a, b) {
+                  final byArticle = a.article.toLowerCase().compareTo(
+                    b.article.toLowerCase(),
+                  );
+                  return byArticle != 0
+                      ? byArticle
+                      : a.color.toLowerCase().compareTo(b.color.toLowerCase());
+                });
+              return Right(result);
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
         );
-      }
-      final result = lines.values.toList()
-        ..sort((a, b) {
-          final byArticle = a.article.toLowerCase().compareTo(
-            b.article.toLowerCase(),
-          );
-          return byArticle != 0
-              ? byArticle
-              : a.color.toLowerCase().compareTo(b.color.toLowerCase());
-        });
-      return Right(result);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
   }
 
   @override
   Future<Either<String, POModel?>> poByNo(String poNo) async {
-    try {
-      final snapshot = await _poCollection
-          .where('poNo', isEqualTo: poNo)
-          .limit(1)
-          .get();
-      return Right(
-        snapshot.docs.isEmpty
-            ? null
-            : POModel.fromSnapshot(snapshot.docs.first),
-      );
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance.trackRead<Either<String, POModel?>>(
+      module: 'issue',
+      operation: 'poByNo',
+      documentId: '',
+      body: () async {
+        try {
+          final snapshot = await _poCollection
+              .where('poNo', isEqualTo: poNo)
+              .limit(1)
+              .get();
+          return Right(
+            snapshot.docs.isEmpty
+                ? null
+                : POModel.fromSnapshot(snapshot.docs.first),
+          );
+        } on FirebaseException catch (e) {
+          return Left('Database error: ${e.message}');
+        } catch (_) {
+          return const Left('An unexpected error occurred');
+        }
+      },
+    );
   }
 
   @override
@@ -199,24 +256,34 @@ class IssueRepository implements IIssueRepository {
     required DateTime upToDate,
     String? excludeId,
   }) async {
-    final snapshot = await _productionCollection
-        .where('poNo', isEqualTo: poNo)
-        .limit(1000)
-        .get();
-    final cutoff = DateTime(upToDate.year, upToDate.month, upToDate.day);
-    return snapshot.docs
-        .where((doc) => doc.id != excludeId)
-        .where((doc) {
-          final data = doc.data();
-          return _normalize(data['article']) == _normalize(article) &&
-              _normalize(data['color']) == _normalize(color);
-        })
-        .where((doc) {
-          final date = _date(doc.data()['productionDate']);
-          if (date == null) return true;
-          return !DateTime(date.year, date.month, date.day).isAfter(cutoff);
-        })
-        .fold<int>(0, (total, doc) => total + _productionQuantity(doc.data()));
+    return ActivityLogService.instance.trackRead<int>(
+      module: 'issue',
+      operation: 'getCumulativeProductionQty',
+      documentId: '',
+      body: () async {
+        final snapshot = await _productionCollection
+            .where('poNo', isEqualTo: poNo)
+            .limit(1000)
+            .get();
+        final cutoff = DateTime(upToDate.year, upToDate.month, upToDate.day);
+        return snapshot.docs
+            .where((doc) => doc.id != excludeId)
+            .where((doc) {
+              final data = doc.data();
+              return _normalize(data['article']) == _normalize(article) &&
+                  _normalize(data['color']) == _normalize(color);
+            })
+            .where((doc) {
+              final date = _date(doc.data()['productionDate']);
+              if (date == null) return true;
+              return !DateTime(date.year, date.month, date.day).isAfter(cutoff);
+            })
+            .fold<int>(
+              0,
+              (total, doc) => total + _productionQuantity(doc.data()),
+            );
+      },
+    );
   }
 
   @override
@@ -226,15 +293,22 @@ class IssueRepository implements IIssueRepository {
     required String color,
     String? excludeId,
   }) async {
-    final snapshot = await _collection
-        .where('poNo', isEqualTo: poNo)
-        .limit(1000)
-        .get();
-    return _cumulativeIssue(
-      snapshot.docs,
-      article: article,
-      color: color,
-      excludingId: excludeId,
+    return ActivityLogService.instance.trackRead<int>(
+      module: 'issue',
+      operation: 'getCumulativeIssueQty',
+      documentId: '',
+      body: () async {
+        final snapshot = await _collection
+            .where('poNo', isEqualTo: poNo)
+            .limit(1000)
+            .get();
+        return _cumulativeIssue(
+          snapshot.docs,
+          article: article,
+          color: color,
+          excludingId: excludeId,
+        );
+      },
     );
   }
 
@@ -244,19 +318,26 @@ class IssueRepository implements IIssueRepository {
     required DateTime upToDate,
     String? excludingId,
   }) async {
-    final snapshot = await _collection
-        .where('tagNo', isEqualTo: poTagNo)
-        .limit(1000)
-        .get();
-    final cutoff = DateTime(upToDate.year, upToDate.month, upToDate.day);
-    return snapshot.docs
-        .where((doc) => doc.id != excludingId)
-        .where((doc) {
-          final date = _date(doc.data()['issueDate']);
-          if (date == null) return true;
-          return !DateTime(date.year, date.month, date.day).isAfter(cutoff);
-        })
-        .fold<int>(0, (total, doc) => total + _quantity(doc.data()));
+    return ActivityLogService.instance.trackRead<int>(
+      module: 'issue',
+      operation: 'getCumulativeIssueQuantity',
+      documentId: '',
+      body: () async {
+        final snapshot = await _collection
+            .where('tagNo', isEqualTo: poTagNo)
+            .limit(1000)
+            .get();
+        final cutoff = DateTime(upToDate.year, upToDate.month, upToDate.day);
+        return snapshot.docs
+            .where((doc) => doc.id != excludingId)
+            .where((doc) {
+              final date = _date(doc.data()['issueDate']);
+              if (date == null) return true;
+              return !DateTime(date.year, date.month, date.day).isAfter(cutoff);
+            })
+            .fold<int>(0, (total, doc) => total + _quantity(doc.data()));
+      },
+    );
   }
 
   @override

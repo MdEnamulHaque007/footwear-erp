@@ -158,7 +158,34 @@ service cloud.firestore {
 
     match /audit_logs/{logId} {
       allow read: if hasPermission('audit_log', 'view');
-      allow create: if isActive();
+      // C/U/D records are written only by the Admin SDK server trigger.
+      // Clients may report reads, with immutable authenticated attribution.
+      allow create: if isActive()
+          && request.resource.data.keys().hasOnly([
+            'schemaVersion', 'source', 'action', 'module', 'operation',
+            'documentId', 'actorUid', 'actorName', 'actorEmail',
+            'status', 'resultCount', 'createdAt'
+          ])
+          && request.resource.data.schemaVersion == 1
+          && request.resource.data.source == 'app_read'
+          && request.resource.data.action == 'read'
+          && request.resource.data.actorUid == request.auth.uid
+          && request.resource.data.actorName is string
+          && request.resource.data.actorName.size() <= 300
+          && request.resource.data.actorEmail == request.auth.token.email
+          && request.resource.data.module in [
+            'master_lc', 'purchase_order', 'cutting', 'sewing', 'production',
+            'issue', 'export', 'settings', 'user_management',
+            'role_management', 'dashboard', 'reports'
+          ]
+          && request.resource.data.operation is string
+          && request.resource.data.operation.size() <= 100
+          && request.resource.data.documentId is string
+          && request.resource.data.documentId.size() <= 500
+          && request.resource.data.status in ['success', 'failure']
+          && request.resource.data.resultCount is int
+          && request.resource.data.resultCount >= 0
+          && request.resource.data.createdAt == request.time;
       allow update, delete: if false;
     }
 

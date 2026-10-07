@@ -7,6 +7,7 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../core/services/activity/activity_log_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
 
@@ -26,70 +27,92 @@ class WarehouseReportRepository implements IWarehouseReportRepository {
     required DateTime fromDate,
     required DateTime toDate,
   }) async {
-    try {
-      final from = DateTime(fromDate.year, fromDate.month, fromDate.day);
-      final to = DateTime(
-        toDate.year,
-        toDate.month,
-        toDate.day,
-        23,
-        59,
-        59,
-        999,
-      );
-      final results = await Future.wait([
-        _fetchCollection(AppConstants.collectionPO),
-        _fetchInRange(AppConstants.collectionCutting, 'cuttingDate', from, to),
-        _fetchInRange(AppConstants.collectionSewing, 'sewingDate', from, to),
-        _fetchInRange(
-          AppConstants.collectionProduction,
-          'productionDate',
-          from,
-          to,
-        ),
-      ]);
+    return ActivityLogService.instance.trackRead<
+      Either<String, WarehouseReportResult>
+    >(
+      module: 'reports',
+      operation: 'getWarehouseReport',
+      documentId: '',
+      body: () async {
+        try {
+          final from = DateTime(fromDate.year, fromDate.month, fromDate.day);
+          final to = DateTime(
+            toDate.year,
+            toDate.month,
+            toDate.day,
+            23,
+            59,
+            59,
+            999,
+          );
+          final results = await Future.wait([
+            _fetchCollection(AppConstants.collectionPO),
+            _fetchInRange(
+              AppConstants.collectionCutting,
+              'cuttingDate',
+              from,
+              to,
+            ),
+            _fetchInRange(
+              AppConstants.collectionSewing,
+              'sewingDate',
+              from,
+              to,
+            ),
+            _fetchInRange(
+              AppConstants.collectionProduction,
+              'productionDate',
+              from,
+              to,
+            ),
+          ]);
 
-      final rows = <String, WarehouseReportRow>{};
-      _addStage(rows, results[1], _Stage.cutting);
-      _addStage(rows, results[2], _Stage.sewing);
-      _addStage(rows, results[3], _Stage.lasting);
-      _mergePurchaseOrders(rows, results[0]);
+          final rows = <String, WarehouseReportRow>{};
+          _addStage(rows, results[1], _Stage.cutting);
+          _addStage(rows, results[2], _Stage.sewing);
+          _addStage(rows, results[3], _Stage.lasting);
+          _mergePurchaseOrders(rows, results[0]);
 
-      final ordered = rows.values.toList()
-        ..sort((left, right) {
-          var value = _compare(left.company, right.company);
-          if (value != 0) {
-            return value;
-          }
-          value = _compare(left.project, right.project);
-          if (value != 0) {
-            return value;
-          }
-          value = _compare(left.poNo, right.poNo);
-          if (value != 0) {
-            return value;
-          }
-          value = _compare(left.article, right.article);
-          return value != 0 ? value : _compare(left.color, right.color);
-        });
+          final ordered = rows.values.toList()
+            ..sort((left, right) {
+              var value = _compare(left.company, right.company);
+              if (value != 0) {
+                return value;
+              }
+              value = _compare(left.project, right.project);
+              if (value != 0) {
+                return value;
+              }
+              value = _compare(left.poNo, right.poNo);
+              if (value != 0) {
+                return value;
+              }
+              value = _compare(left.article, right.article);
+              return value != 0 ? value : _compare(left.color, right.color);
+            });
 
-      return Right(
-        WarehouseReportResult(
-          rows: ordered,
-          summary: WarehouseReportSummary.fromRows(ordered),
-          fromDate: from,
-          toDate: toDate,
-        ),
-      );
-    } on FirebaseException catch (error) {
-      return Left('Failed to load report: ${error.message ?? error.code}');
-    } catch (error) {
-      return Left('Failed to load report: $error');
-    }
+          return Right(
+            WarehouseReportResult(
+              rows: ordered,
+              summary: WarehouseReportSummary.fromRows(ordered),
+              fromDate: from,
+              toDate: toDate,
+            ),
+          );
+        } on FirebaseException catch (error) {
+          return Left('Failed to load report: ${error.message ?? error.code}');
+        } catch (error) {
+          return Left('Failed to load report: $error');
+        }
+      },
+    );
   }
 
   Future<List<Map<String, dynamic>>> _fetchCollection(String collection) async {
-    final snapshot = await _firestore.collection(collection).limit(_limit).get();
+    final snapshot = await _firestore
+        .collection(collection)
+        .limit(_limit)
+        .get();
     return snapshot.docs.map((document) => document.data()).toList();
   }
 
@@ -122,7 +145,9 @@ class WarehouseReportRepository implements IWarehouseReportRepository {
       final quantity = switch (stage) {
         _Stage.cutting => _number(data['cuttingQuantity'] ?? data['quantity']),
         _Stage.sewing => _number(data['sewingQuantity'] ?? data['quantity']),
-        _Stage.lasting => _number(data['quantity'] ?? data['productionQuantity']),
+        _Stage.lasting => _number(
+          data['quantity'] ?? data['productionQuantity'],
+        ),
       };
       rows[row.lineKey] = switch (stage) {
         _Stage.cutting => previous.copyWith(

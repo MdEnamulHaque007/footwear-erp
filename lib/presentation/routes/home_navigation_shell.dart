@@ -37,7 +37,8 @@ class HomeNavigationShell extends StatelessWidget {
       body: child,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex(location),
-        onDestinationSelected: (index) => context.go(_destinations[index].route),
+        onDestinationSelected: (index) =>
+            context.go(_destinations[index].route),
         destinations: _destinations
             .map(
               (item) => NavigationDestination(
@@ -92,7 +93,7 @@ const _destinations = <_NavigationDestinationData>[
     Icons.bar_chart,
   ),
   _NavigationDestinationData(
-    'Audit Log',
+    'Activity Log',
     RouteConstants.auditLog,
     Icons.history_outlined,
     Icons.history,

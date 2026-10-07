@@ -7,8 +7,10 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../core/services/activity/activity_log_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
+
 import '../../core/constants/app_constants.dart';
 import '../../domain/entities/reports/production_report_entity.dart';
 import '../../domain/repositories/i_production_report_repository.dart';
@@ -46,18 +48,26 @@ class ProductionReportRepository implements IProductionReportRepository {
     required DateTime toDate,
     String search = '',
   }) async {
-    try {
-      final rows = await _buildRows(
-        fromDate: fromDate,
-        toDate: toDate,
-        search: search,
-      );
-      return Right(rows);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<ProductionReportEntity>>>(
+          module: 'reports',
+          operation: 'getProductionReport',
+          documentId: '',
+          body: () async {
+            try {
+              final rows = await _buildRows(
+                fromDate: fromDate,
+                toDate: toDate,
+                search: search,
+              );
+              return Right(rows);
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   @override
@@ -66,18 +76,26 @@ class ProductionReportRepository implements IProductionReportRepository {
     required DateTime toDate,
     String search = '',
   }) async {
-    try {
-      final rows = await _buildRows(
-        fromDate: fromDate,
-        toDate: toDate,
-        search: search,
-      );
-      return Right(ProductionReportSummary.fromRows(rows));
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, ProductionReportSummary>>(
+          module: 'reports',
+          operation: 'getReportSummary',
+          documentId: '',
+          body: () async {
+            try {
+              final rows = await _buildRows(
+                fromDate: fromDate,
+                toDate: toDate,
+                search: search,
+              );
+              return Right(ProductionReportSummary.fromRows(rows));
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   /// Reads the three source collections once, discovers the distinct lines, then
@@ -111,10 +129,7 @@ class ProductionReportRepository implements IProductionReportRepository {
     // PO master data, loaded once per distinct PO No.
     final poCache = <String, Map<String, dynamic>>{};
     for (final poNo in keys.values.map((k) => k.poNo).toSet()) {
-      final snapshot = await _pos
-          .where('poNo', isEqualTo: poNo)
-          .limit(1)
-          .get();
+      final snapshot = await _pos.where('poNo', isEqualTo: poNo).limit(1).get();
       if (snapshot.docs.isNotEmpty) {
         poCache[poNo.toLowerCase()] = snapshot.docs.first.data();
       }
@@ -204,7 +219,8 @@ class ProductionReportRepository implements IProductionReportRepository {
       if (total > 0) return total;
       return items.fold<int>(
         0,
-        (total, raw) => total +
+        (total, raw) =>
+            total +
             _number(raw is Map ? raw['poQuantity'] ?? raw['quantity'] : null),
       );
     }
@@ -255,4 +271,3 @@ class _LineKey {
   @override
   int get hashCode => value.hashCode;
 }
-

@@ -7,6 +7,7 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../activity/activity_log_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class FirebaseFirestoreService {
@@ -35,7 +36,32 @@ class FirebaseFirestoreService {
     String collection, {
     int limit = 20,
   }) async {
-    final snapshot = await _firestore.collection(collection).limit(limit).get();
-    return snapshot.docs;
+    const modules = {
+      'master_lc': 'master_lc',
+      'purchase_orders': 'purchase_order',
+      'cuttings': 'cutting',
+      'sewings': 'sewing',
+      'productions': 'production',
+      'issues': 'issue',
+      'exports': 'export',
+      'users': 'user_management',
+      'roles': 'role_management',
+      'settings': 'settings',
+    };
+    Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> read() async {
+      final snapshot = await _firestore
+          .collection(collection)
+          .limit(limit)
+          .get();
+      return snapshot.docs;
+    }
+
+    final module = modules[collection];
+    if (module == null) return read();
+    return ActivityLogService.instance.trackRead(
+      module: module,
+      operation: 'getDocuments',
+      body: read,
+    );
   }
 }

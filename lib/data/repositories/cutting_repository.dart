@@ -7,17 +7,18 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../core/services/activity/activity_log_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+
 import '../../core/constants/app_constants.dart';
 import '../../domain/entities/cutting_entity.dart';
 import '../../domain/repositories/i_cutting_repository.dart';
 import '../models/cutting/cutting_model.dart';
 import '../models/purchase_order/po_model.dart';
 import '../models/master_lc/master_lc_model.dart';
-
 
 class CuttingRepository implements ICuttingRepository {
   CuttingRepository({FirebaseFirestore? firestore})
@@ -33,42 +34,50 @@ class CuttingRepository implements ICuttingRepository {
   /// Distinct Article + Color pairs recorded in the PO line items of [poNo].
   @override
   Future<Either<String, List<CuttingLine>>> getPOLines(String poNo) async {
-    try {
-      final snapshot = await _poCollection
-          .where('poNo', isEqualTo: poNo)
-          .limit(10)
-          .get();
-      final lines = <String, CuttingLine>{};
-      for (final doc in snapshot.docs) {
-        final items = doc.data()['lineItems'];
-        if (items is! List) continue;
-        for (final raw in items) {
-          if (raw is! Map) continue;
-          final article = raw['article']?.toString().trim() ?? '';
-          final color = raw['color']?.toString().trim() ?? '';
-          if (article.isEmpty || color.isEmpty) continue;
-          final key = '${article.toLowerCase()}|${color.toLowerCase()}';
-          lines.putIfAbsent(
-            key,
-            () => CuttingLine(article: article, color: color),
-          );
-        }
-      }
-      final result = lines.values.toList()
-        ..sort((a, b) {
-          final byArticle = a.article.toLowerCase().compareTo(
-            b.article.toLowerCase(),
-          );
-          return byArticle != 0
-              ? byArticle
-              : a.color.toLowerCase().compareTo(b.color.toLowerCase());
-        });
-      return Right(result);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<CuttingLine>>>(
+          module: 'cutting',
+          operation: 'getPOLines',
+          documentId: '',
+          body: () async {
+            try {
+              final snapshot = await _poCollection
+                  .where('poNo', isEqualTo: poNo)
+                  .limit(10)
+                  .get();
+              final lines = <String, CuttingLine>{};
+              for (final doc in snapshot.docs) {
+                final items = doc.data()['lineItems'];
+                if (items is! List) continue;
+                for (final raw in items) {
+                  if (raw is! Map) continue;
+                  final article = raw['article']?.toString().trim() ?? '';
+                  final color = raw['color']?.toString().trim() ?? '';
+                  if (article.isEmpty || color.isEmpty) continue;
+                  final key = '${article.toLowerCase()}|${color.toLowerCase()}';
+                  lines.putIfAbsent(
+                    key,
+                    () => CuttingLine(article: article, color: color),
+                  );
+                }
+              }
+              final result = lines.values.toList()
+                ..sort((a, b) {
+                  final byArticle = a.article.toLowerCase().compareTo(
+                    b.article.toLowerCase(),
+                  );
+                  return byArticle != 0
+                      ? byArticle
+                      : a.color.toLowerCase().compareTo(b.color.toLowerCase());
+                });
+              return Right(result);
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   /// Keyset-pagination cursor: reset on page 0, advanced to the last doc read.
@@ -79,77 +88,109 @@ class CuttingRepository implements ICuttingRepository {
     int page = 0,
     int limit = 20,
   }) async {
-    try {
-      if (page == 0) _lastDoc = null;
-      var query = _collection.orderBy('cuttingDate', descending: true);
-      if (page > 0 && _lastDoc != null) {
-        query = query.startAfterDocument(_lastDoc!);
-      }
-      final snapshot = await query.limit(limit).get();
-      if (snapshot.docs.isNotEmpty) _lastDoc = snapshot.docs.last;
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<CuttingModel>>>(
+          module: 'cutting',
+          operation: 'getCuttingList',
+          documentId: '',
+          body: () async {
+            try {
+              if (page == 0) _lastDoc = null;
+              var query = _collection.orderBy('cuttingDate', descending: true);
+              if (page > 0 && _lastDoc != null) {
+                query = query.startAfterDocument(_lastDoc!);
+              }
+              final snapshot = await query.limit(limit).get();
+              if (snapshot.docs.isNotEmpty) _lastDoc = snapshot.docs.last;
 
-      final list = snapshot.docs.map(CuttingModel.fromSnapshot).toList();
-      return Right(await enrichCuttingsWithPO(list));
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (e) {
-      return const Left('An unexpected error occurred');
-    }
+              final list = snapshot.docs
+                  .map(CuttingModel.fromSnapshot)
+                  .toList();
+              return Right(await enrichCuttingsWithPO(list));
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (e) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   @override
   Future<Either<String, String>> getNextVoucherNo(DateTime date) async {
-    try {
-      final dateStr = DateFormat('yyyyMMdd').format(date);
-      final prefix = 'CUT-$dateStr-';
-      final snapshot = await _collection
-          .where('voucherNo', isGreaterThanOrEqualTo: prefix)
-          .where('voucherNo', isLessThan: '${prefix}ZZZ')
-          .orderBy('voucherNo', descending: true)
-          .limit(1)
-          .get();
+    return ActivityLogService.instance.trackRead<Either<String, String>>(
+      module: 'cutting',
+      operation: 'getNextVoucherNo',
+      documentId: '',
+      body: () async {
+        try {
+          final dateStr = DateFormat('yyyyMMdd').format(date);
+          final prefix = 'CUT-$dateStr-';
+          final snapshot = await _collection
+              .where('voucherNo', isGreaterThanOrEqualTo: prefix)
+              .where('voucherNo', isLessThan: '${prefix}ZZZ')
+              .orderBy('voucherNo', descending: true)
+              .limit(1)
+              .get();
 
-      var nextSerial = 1;
-      if (snapshot.docs.isNotEmpty) {
-        final lastVoucher =
-            snapshot.docs.first.data()['voucherNo']?.toString() ?? '';
-        final lastSerial = int.tryParse(lastVoucher.split('-').last) ?? 0;
-        nextSerial = lastSerial + 1;
-      }
-      return Right('$prefix${nextSerial.toString().padLeft(3, '0')}');
-    } catch (error) {
-      return Left('Failed to generate voucher: $error');
-    }
+          var nextSerial = 1;
+          if (snapshot.docs.isNotEmpty) {
+            final lastVoucher =
+                snapshot.docs.first.data()['voucherNo']?.toString() ?? '';
+            final lastSerial = int.tryParse(lastVoucher.split('-').last) ?? 0;
+            nextSerial = lastSerial + 1;
+          }
+          return Right('$prefix${nextSerial.toString().padLeft(3, '0')}');
+        } catch (error) {
+          return Left('Failed to generate voucher: $error');
+        }
+      },
+    );
   }
 
   @override
   Future<Either<String, List<CuttingModel>>> byPoTag(String poTagNo) async {
-    try {
-      final s = await _collection
-          .where('tagNo', isEqualTo: poTagNo)
-          .orderBy('cuttingDate', descending: true)
-          .get();
-      return Right(s.docs.map(CuttingModel.fromSnapshot).toList());
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (e) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<CuttingModel>>>(
+          module: 'cutting',
+          operation: 'byPoTag',
+          documentId: '',
+          body: () async {
+            try {
+              final s = await _collection
+                  .where('tagNo', isEqualTo: poTagNo)
+                  .orderBy('cuttingDate', descending: true)
+                  .get();
+              return Right(s.docs.map(CuttingModel.fromSnapshot).toList());
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (e) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   @override
   Future<Either<String, CuttingModel?>> byId(String id) async {
-    try {
-      final snapshot = await _collection.doc(id).get();
-      if (!snapshot.exists) return const Right(null);
-      final item = CuttingModel.fromSnapshot(snapshot);
-      final enriched = await enrichCuttingsWithPO([item]);
-      return Right(enriched.single);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance.trackRead<Either<String, CuttingModel?>>(
+      module: 'cutting',
+      operation: 'byId',
+      documentId: id,
+      body: () async {
+        try {
+          final snapshot = await _collection.doc(id).get();
+          if (!snapshot.exists) return const Right(null);
+          final item = CuttingModel.fromSnapshot(snapshot);
+          final enriched = await enrichCuttingsWithPO([item]);
+          return Right(enriched.single);
+        } on FirebaseException catch (e) {
+          return Left('Database error: ${e.message}');
+        } catch (_) {
+          return const Left('An unexpected error occurred');
+        }
+      },
+    );
   }
 
   /// Fills legacy Cutting records from their matching PO and PO line item.
@@ -158,57 +199,66 @@ class CuttingRepository implements ICuttingRepository {
   Future<List<CuttingModel>> enrichCuttingsWithPO(
     List<CuttingModel> items,
   ) async {
-    final missing = items
-        .where((item) => item.poNo.isNotEmpty)
-        .where((item) => item.tagNo.isEmpty || item.poQuantity == 0)
-        .toList();
-    if (missing.isEmpty) return items;
+    return ActivityLogService.instance.trackRead<List<CuttingModel>>(
+      module: 'cutting',
+      operation: 'enrichCuttingsWithPO',
+      documentId: '',
+      body: () async {
+        final missing = items
+            .where((item) => item.poNo.isNotEmpty)
+            .where((item) => item.tagNo.isEmpty || item.poQuantity == 0)
+            .toList();
+        if (missing.isEmpty) return items;
 
-    final poNos = missing.map((item) => item.poNo).toSet().toList();
-    final poByNo = <String, POModel>{};
-    for (var start = 0; start < poNos.length; start += 30) {
-      final batch = poNos.skip(start).take(30).toList();
-      final snapshot = await _poCollection
-          .where('poNo', whereIn: batch)
-          .get();
-      for (final document in snapshot.docs) {
-        final po = POModel.fromSnapshot(document);
-        poByNo.putIfAbsent(po.poNo, () => po);
-      }
-    }
+        final poNos = missing.map((item) => item.poNo).toSet().toList();
+        final poByNo = <String, POModel>{};
+        for (var start = 0; start < poNos.length; start += 30) {
+          final batch = poNos.skip(start).take(30).toList();
+          final snapshot = await _poCollection
+              .where('poNo', whereIn: batch)
+              .get();
+          for (final document in snapshot.docs) {
+            final po = POModel.fromSnapshot(document);
+            poByNo.putIfAbsent(po.poNo, () => po);
+          }
+        }
 
-    return items.map((item) {
-      // Continue enrichment even when tag/quantity already exist because
-      // legacy records may still be missing company/project.
-      final basePo = poByNo[item.poNo];
-      if (basePo == null) {
-        debugPrint('Cutting PO not found: \${item.poNo}');
-        return item;
-      }
+        return Future.wait(
+          items.map((item) async {
+            // Continue enrichment even when tag/quantity already exist because
+            // legacy records may still be missing company/project.
+            final basePo = poByNo[item.poNo];
+            if (basePo == null) {
+              debugPrint('Cutting PO not found: \${item.poNo}');
+              return item;
+            }
 
-      // Some legacy/imported PO documents contain the correct PO number/tag
-      // but have blank company/project fields. Master LC is the authoritative
-      // source for those two fields, keyed by the same Tag No.
-      final po = await _enrichPOHeaderFromMasterLc(basePo);
-      final matchingLines = po.effectiveLineItems.where((line) {
-        return _normalize(line.article) == _normalize(item.article) &&
-            _normalize(line.color) == _normalize(item.color);
-      }).toList();
-      final line = matchingLines.isEmpty ? null : matchingLines.first;
-      final poQuantity = item.poQuantity == 0
-          ? (line?.poQuantity ?? 0)
-          : item.poQuantity;
-      final tagNo = item.tagNo.isEmpty ? po.tagNo : item.tagNo;
-      return CuttingModel.fromEntity(
-        item.copyWith(
-          tagNo: tagNo,
-          // tagNo is the single source of truth; poTagNo is derived by the entity.
-          company: item.company.isEmpty ? po.company : item.company,
-          project: item.project.isEmpty ? po.project : item.project,
-          poQuantity: poQuantity,
-        ),
-      );
-    }).toList();
+            // Some legacy/imported PO documents contain the correct PO number/tag
+            // but have blank company/project fields. Master LC is the authoritative
+            // source for those two fields, keyed by the same Tag No.
+            final po = await _enrichPOHeaderFromMasterLc(basePo);
+            final matchingLines = po.effectiveLineItems.where((line) {
+              return _normalize(line.article) == _normalize(item.article) &&
+                  _normalize(line.color) == _normalize(item.color);
+            }).toList();
+            final line = matchingLines.isEmpty ? null : matchingLines.first;
+            final poQuantity = item.poQuantity == 0
+                ? (line?.poQuantity ?? 0)
+                : item.poQuantity;
+            final tagNo = item.tagNo.isEmpty ? po.tagNo : item.tagNo;
+            return CuttingModel.fromEntity(
+              item.copyWith(
+                tagNo: tagNo,
+                // tagNo is the single source of truth; poTagNo is derived by the entity.
+                company: item.company.isEmpty ? po.company : item.company,
+                project: item.project.isEmpty ? po.project : item.project,
+                poQuantity: poQuantity,
+              ),
+            );
+          }),
+        );
+      },
+    );
   }
 
   Future<POModel> _enrichPOHeaderFromMasterLc(POModel po) async {
@@ -244,81 +294,114 @@ class CuttingRepository implements ICuttingRepository {
     required String article,
     required String color,
   }) async {
-    try {
-      // Keep this query index-independent. Article and color are filtered and
-      // sorted locally so the detail view also works before composite indexes
-      // finish building in Firestore.
-      final snapshot = await _collection
-          .where('poNo', isEqualTo: poNo)
-          .limit(1000)
-          .get();
-      final normalizedArticle = article.trim().toLowerCase();
-      final normalizedColor = color.trim().toLowerCase();
-      final entries =
-          snapshot.docs
-              .map(CuttingModel.fromSnapshot)
-              .where(
-                (item) =>
-                    item.article.trim().toLowerCase() == normalizedArticle &&
-                    item.color.trim().toLowerCase() == normalizedColor,
-              )
-              .toList()
-            ..sort((a, b) => b.cuttingDate.compareTo(a.cuttingDate));
-      return Right(entries);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<CuttingModel>>>(
+          module: 'cutting',
+          operation: 'byLine',
+          documentId: '',
+          body: () async {
+            try {
+              // Keep this query index-independent. Article and color are filtered and
+              // sorted locally so the detail view also works before composite indexes
+              // finish building in Firestore.
+              final snapshot = await _collection
+                  .where('poNo', isEqualTo: poNo)
+                  .limit(1000)
+                  .get();
+              final normalizedArticle = article.trim().toLowerCase();
+              final normalizedColor = color.trim().toLowerCase();
+              final entries =
+                  snapshot.docs
+                      .map(CuttingModel.fromSnapshot)
+                      .where(
+                        (item) =>
+                            item.article.trim().toLowerCase() ==
+                                normalizedArticle &&
+                            item.color.trim().toLowerCase() == normalizedColor,
+                      )
+                      .toList()
+                    ..sort((a, b) => b.cuttingDate.compareTo(a.cuttingDate));
+              return Right(entries);
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   @override
   Future<Either<String, List<String>>> getPONoList() async {
-    try {
-      final snapshot = await _poCollection.orderBy('poNo').limit(1000).get();
-      return Right(
-        snapshot.docs
-            .map((doc) => doc.data()['poNo'] as String? ?? '')
-            .where((value) => value.isNotEmpty)
-            .toSet()
-            .toList(),
-      );
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance.trackRead<Either<String, List<String>>>(
+      module: 'cutting',
+      operation: 'getPONoList',
+      documentId: '',
+      body: () async {
+        try {
+          final snapshot = await _poCollection
+              .orderBy('poNo')
+              .limit(1000)
+              .get();
+          return Right(
+            snapshot.docs
+                .map((doc) => doc.data()['poNo'] as String? ?? '')
+                .where((value) => value.isNotEmpty)
+                .toSet()
+                .toList(),
+          );
+        } on FirebaseException catch (e) {
+          return Left('Database error: ${e.message}');
+        } catch (_) {
+          return const Left('An unexpected error occurred');
+        }
+      },
+    );
   }
 
   @override
   Future<Either<String, List<POModel>>> getPOListForDropdown() async {
-    try {
-      final snapshot = await _poCollection.orderBy('poNo').limit(100).get();
-      return Right(snapshot.docs.map(POModel.fromSnapshot).toList());
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance.trackRead<Either<String, List<POModel>>>(
+      module: 'cutting',
+      operation: 'getPOListForDropdown',
+      documentId: '',
+      body: () async {
+        try {
+          final snapshot = await _poCollection.orderBy('poNo').limit(100).get();
+          return Right(snapshot.docs.map(POModel.fromSnapshot).toList());
+        } on FirebaseException catch (e) {
+          return Left('Database error: ${e.message}');
+        } catch (_) {
+          return const Left('An unexpected error occurred');
+        }
+      },
+    );
   }
 
   @override
   Future<Either<String, POModel?>> getPOByNo(String poNo) async {
-    try {
-      final snapshot = await _poCollection
-          .where('poNo', isEqualTo: poNo)
-          .limit(1)
-          .get();
-      return Right(
-        snapshot.docs.isEmpty
-            ? null
-            : POModel.fromSnapshot(snapshot.docs.first),
-      );
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance.trackRead<Either<String, POModel?>>(
+      module: 'cutting',
+      operation: 'getPOByNo',
+      documentId: '',
+      body: () async {
+        try {
+          final snapshot = await _poCollection
+              .where('poNo', isEqualTo: poNo)
+              .limit(1)
+              .get();
+          return Right(
+            snapshot.docs.isEmpty
+                ? null
+                : POModel.fromSnapshot(snapshot.docs.first),
+          );
+        } on FirebaseException catch (e) {
+          return Left('Database error: ${e.message}');
+        } catch (_) {
+          return const Left('An unexpected error occurred');
+        }
+      },
+    );
   }
 
   @override
@@ -383,8 +466,7 @@ class CuttingRepository implements ICuttingRepository {
     if (items is List && items.isNotEmpty) {
       return items.fold<int>(
         0,
-        (total, raw) =>
-            total + _number(raw is Map ? raw['poQuantity'] : null),
+        (total, raw) => total + _number(raw is Map ? raw['poQuantity'] : null),
       );
     }
     return _number(po['poQuantity'] ?? po['quantity']);
@@ -442,13 +524,24 @@ class CuttingRepository implements ICuttingRepository {
     required String poTagNo,
     required DateTime upToDate,
   }) async {
-    final snapshot = await _collection
-        .where('tagNo', isEqualTo: poTagNo)
-        .where('cuttingDate', isLessThanOrEqualTo: Timestamp.fromDate(upToDate))
-        .get();
-    return snapshot.docs.fold<int>(
-      0,
-      (total, doc) => total + ((doc.data()['quantity'] as num?) ?? 0).toInt(),
+    return ActivityLogService.instance.trackRead<int>(
+      module: 'cutting',
+      operation: 'getCumulativeCuttingQuantity',
+      documentId: '',
+      body: () async {
+        final snapshot = await _collection
+            .where('tagNo', isEqualTo: poTagNo)
+            .where(
+              'cuttingDate',
+              isLessThanOrEqualTo: Timestamp.fromDate(upToDate),
+            )
+            .get();
+        return snapshot.docs.fold<int>(
+          0,
+          (total, doc) =>
+              total + ((doc.data()['quantity'] as num?) ?? 0).toInt(),
+        );
+      },
     );
   }
 
@@ -459,23 +552,30 @@ class CuttingRepository implements ICuttingRepository {
     required String color,
     String? excludingId,
   }) async {
-    final snapshot = await _collection
-        .where('poNo', isEqualTo: poNo)
-        .where('article', isEqualTo: article)
-        .where('color', isEqualTo: color)
-        .limit(1000)
-        .get();
-    return snapshot.docs
-        .where((doc) => doc.id != excludingId)
-        .fold<int>(
-          0,
-          (total, doc) =>
-              total +
-              ((doc.data()['cuttingQuantity'] as num?) ??
-                      (doc.data()['quantity'] as num?) ??
-                      0)
-                  .toInt(),
-        );
+    return ActivityLogService.instance.trackRead<int>(
+      module: 'cutting',
+      operation: 'getCumulativeCuttingQuantityByLine',
+      documentId: '',
+      body: () async {
+        final snapshot = await _collection
+            .where('poNo', isEqualTo: poNo)
+            .where('article', isEqualTo: article)
+            .where('color', isEqualTo: color)
+            .limit(1000)
+            .get();
+        return snapshot.docs
+            .where((doc) => doc.id != excludingId)
+            .fold<int>(
+              0,
+              (total, doc) =>
+                  total +
+                  ((doc.data()['cuttingQuantity'] as num?) ??
+                          (doc.data()['quantity'] as num?) ??
+                          0)
+                      .toInt(),
+            );
+      },
+    );
   }
 }
 
@@ -485,4 +585,3 @@ class _CuttingValidationException implements Exception {
   const _CuttingValidationException(this.message);
   final String message;
 }
-

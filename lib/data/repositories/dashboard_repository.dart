@@ -7,6 +7,7 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../core/services/activity/activity_log_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
 import 'package:intl/intl.dart';
@@ -78,60 +79,69 @@ class DashboardRepository implements IDashboardRepository {
 
   @override
   Future<Either<String, DashboardStatsEntity>> getStats() async {
-    try {
-      if (_hasFreshStatsCache) {
-        return Right(_statsCache!);
-      }
+    return ActivityLogService.instance.trackRead<
+      Either<String, DashboardStatsEntity>
+    >(
+      module: 'dashboard',
+      operation: 'getStats',
+      documentId: '',
+      body: () async {
+        try {
+          if (_hasFreshStatsCache) {
+            return Right(_statsCache!);
+          }
 
-      final results = await Future.wait([
-        _masterLc.limit(queryLimit).get(),
-        _po.limit(queryLimit).get(),
-        _cutting.limit(queryLimit).get(),
-        _sewing.limit(queryLimit).get(),
-        _production.limit(queryLimit).get(),
-        _issue.limit(queryLimit).get(),
-        _export.limit(queryLimit).get(),
-        _users.limit(queryLimit).get(),
-      ]);
-      final masterLc = results[0].docs.map((d) => d.data());
-      final po = results[1].docs.map((d) => d.data());
-      final cutting = results[2].docs.map((d) => d.data());
-      final sewing = results[3].docs.map((d) => d.data());
-      final production = results[4].docs.map((d) => d.data());
-      final issue = results[5].docs.map((d) => d.data());
-      final export = results[6].docs.map((d) => d.data());
-      final users = results[7].docs.map((d) => d.data());
+          final results = await Future.wait([
+            _masterLc.limit(queryLimit).get(),
+            _po.limit(queryLimit).get(),
+            _cutting.limit(queryLimit).get(),
+            _sewing.limit(queryLimit).get(),
+            _production.limit(queryLimit).get(),
+            _issue.limit(queryLimit).get(),
+            _export.limit(queryLimit).get(),
+            _users.limit(queryLimit).get(),
+          ]);
+          final masterLc = results[0].docs.map((d) => d.data());
+          final po = results[1].docs.map((d) => d.data());
+          final cutting = results[2].docs.map((d) => d.data());
+          final sewing = results[3].docs.map((d) => d.data());
+          final production = results[4].docs.map((d) => d.data());
+          final issue = results[5].docs.map((d) => d.data());
+          final export = results[6].docs.map((d) => d.data());
+          final users = results[7].docs.map((d) => d.data());
 
-      final stats = DashboardStatsEntity(
-        masterLcCount: results[0].docs.length,
-        masterLcValue: _sum(masterLc, 'masterLcValue'),
-        poCount: results[1].docs.length,
-        poValue: _sum(po, 'poValue'),
-        cuttingCount: results[2].docs.length,
-        cuttingQuantity: _sum(cutting, 'cuttingQuantity').toInt(),
-        sewingCount: results[3].docs.length,
-        sewingQuantity: _sum(sewing, 'sewingQuantity').toInt(),
-        productionCount: results[4].docs.length,
-        // `quantity` is Production's canonical stored field; older records
-        // created before it existed carry only `productionValue`.
-        productionQuantity: _sum(production, 'quantity').toInt(),
-        issueCount: results[5].docs.length,
-        issueQuantity: _sum(issue, 'issueQuantity').toInt(),
-        exportCount: results[6].docs.length,
-        exportQuantity: _sum(export, 'exportQuantity').toInt(),
-        userCount: results[7].docs.length,
-        activeUserCount: users
-            .where((d) => _bool(d['isActive'], fallback: true))
-            .length,
-      );
-      _statsCache = stats;
-      _statsCacheAt = DateTime.now();
-      return Right(stats);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+          final stats = DashboardStatsEntity(
+            masterLcCount: results[0].docs.length,
+            masterLcValue: _sum(masterLc, 'masterLcValue'),
+            poCount: results[1].docs.length,
+            poValue: _sum(po, 'poValue'),
+            cuttingCount: results[2].docs.length,
+            cuttingQuantity: _sum(cutting, 'cuttingQuantity').toInt(),
+            sewingCount: results[3].docs.length,
+            sewingQuantity: _sum(sewing, 'sewingQuantity').toInt(),
+            productionCount: results[4].docs.length,
+            // `quantity` is Production's canonical stored field; older records
+            // created before it existed carry only `productionValue`.
+            productionQuantity: _sum(production, 'quantity').toInt(),
+            issueCount: results[5].docs.length,
+            issueQuantity: _sum(issue, 'issueQuantity').toInt(),
+            exportCount: results[6].docs.length,
+            exportQuantity: _sum(export, 'exportQuantity').toInt(),
+            userCount: results[7].docs.length,
+            activeUserCount: users
+                .where((d) => _bool(d['isActive'], fallback: true))
+                .length,
+          );
+          _statsCache = stats;
+          _statsCacheAt = DateTime.now();
+          return Right(stats);
+        } on FirebaseException catch (e) {
+          return Left('Database error: ${e.message}');
+        } catch (_) {
+          return const Left('An unexpected error occurred');
+        }
+      },
+    );
   }
 
   // ----------------------------------------------------------- activities
@@ -140,24 +150,32 @@ class DashboardRepository implements IDashboardRepository {
   Future<Either<String, List<DashboardActivityEntity>>> getRecentActivities(
     int limit,
   ) async {
-    try {
-      final results = await Future.wait([
-        _latestActivity(_masterLc, 'createdAt', 'master_lc'),
-        _latestActivity(_po, 'createdAt', 'purchase_order'),
-        _latestActivity(_cutting, 'cuttingDate', 'cutting'),
-        _latestActivity(_sewing, 'sewingDate', 'sewing'),
-        _latestActivity(_production, 'productionDate', 'production'),
-        _latestActivity(_issue, 'issueDate', 'issue'),
-        _latestActivity(_export, 'exportDate', 'export'),
-      ]);
-      final merged = results.expand((entries) => entries).toList()
-        ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
-      return Right(merged.take(limit).toList());
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<DashboardActivityEntity>>>(
+          module: 'dashboard',
+          operation: 'getRecentActivities',
+          documentId: '',
+          body: () async {
+            try {
+              final results = await Future.wait([
+                _latestActivity(_masterLc, 'createdAt', 'master_lc'),
+                _latestActivity(_po, 'createdAt', 'purchase_order'),
+                _latestActivity(_cutting, 'cuttingDate', 'cutting'),
+                _latestActivity(_sewing, 'sewingDate', 'sewing'),
+                _latestActivity(_production, 'productionDate', 'production'),
+                _latestActivity(_issue, 'issueDate', 'issue'),
+                _latestActivity(_export, 'exportDate', 'export'),
+              ]);
+              final merged = results.expand((entries) => entries).toList()
+                ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+              return Right(merged.take(limit).toList());
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   /// Reads the two newest documents of one collection and maps them to feed
@@ -207,34 +225,42 @@ class DashboardRepository implements IDashboardRepository {
 
   @override
   Future<Either<String, DashboardQuickStatsEntity>> getQuickStats() async {
-    try {
-      final now = DateTime.now();
-      final startOfToday = DateTime(now.year, now.month, now.day);
-      final startOfWeek = startOfToday.subtract(
-        Duration(days: startOfToday.weekday - 1),
-      );
-      final startOfMonth = DateTime(now.year, now.month);
+    return ActivityLogService.instance
+        .trackRead<Either<String, DashboardQuickStatsEntity>>(
+          module: 'dashboard',
+          operation: 'getQuickStats',
+          documentId: '',
+          body: () async {
+            try {
+              final now = DateTime.now();
+              final startOfToday = DateTime(now.year, now.month, now.day);
+              final startOfWeek = startOfToday.subtract(
+                Duration(days: startOfToday.weekday - 1),
+              );
+              final startOfMonth = DateTime(now.year, now.month);
 
-      final results = await Future.wait([
-        _totalsSince(startOfToday),
-        _totalsSince(startOfWeek),
-        _totalsSince(startOfMonth),
-      ]);
-      return Right(
-        DashboardQuickStatsEntity(
-          todayQuantity: results[0].quantity,
-          todayValue: results[0].value,
-          weekQuantity: results[1].quantity,
-          weekValue: results[1].value,
-          monthQuantity: results[2].quantity,
-          monthValue: results[2].value,
-        ),
-      );
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+              final results = await Future.wait([
+                _totalsSince(startOfToday),
+                _totalsSince(startOfWeek),
+                _totalsSince(startOfMonth),
+              ]);
+              return Right(
+                DashboardQuickStatsEntity(
+                  todayQuantity: results[0].quantity,
+                  todayValue: results[0].value,
+                  weekQuantity: results[1].quantity,
+                  weekValue: results[1].value,
+                  monthQuantity: results[2].quantity,
+                  monthValue: results[2].value,
+                ),
+              );
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   /// Quantity and value totals for every stage dated on or after [from].
@@ -280,45 +306,54 @@ class DashboardRepository implements IDashboardRepository {
   Future<Either<String, List<MultiSeriesDataPoint>>> getProductionTrend(
     int days,
   ) async {
-    try {
-      final now = DateTime.now();
-      final from = DateTime(
-        now.year,
-        now.month,
-        now.day,
-      ).subtract(Duration(days: days - 1));
-      final stamp = Timestamp.fromDate(from);
+    return ActivityLogService.instance.trackRead<
+      Either<String, List<MultiSeriesDataPoint>>
+    >(
+      module: 'dashboard',
+      operation: 'getProductionTrend',
+      documentId: '',
+      body: () async {
+        try {
+          final now = DateTime.now();
+          final from = DateTime(
+            now.year,
+            now.month,
+            now.day,
+          ).subtract(Duration(days: days - 1));
+          final stamp = Timestamp.fromDate(from);
 
-      final results = await Future.wait([
-        _dailySeries(_cutting, 'cuttingDate', 'cuttingQuantity', stamp),
-        _dailySeries(_sewing, 'sewingDate', 'sewingQuantity', stamp),
-        _dailySeries(_production, 'productionDate', 'quantity', stamp),
-        _dailySeries(_issue, 'issueDate', 'issueQuantity', stamp),
-        _dailySeries(_export, 'exportDate', 'exportQuantity', stamp),
-      ]);
+          final results = await Future.wait([
+            _dailySeries(_cutting, 'cuttingDate', 'cuttingQuantity', stamp),
+            _dailySeries(_sewing, 'sewingDate', 'sewingQuantity', stamp),
+            _dailySeries(_production, 'productionDate', 'quantity', stamp),
+            _dailySeries(_issue, 'issueDate', 'issueQuantity', stamp),
+            _dailySeries(_export, 'exportDate', 'exportQuantity', stamp),
+          ]);
 
-      // Seed every day in the window so the chart keeps a continuous x-axis
-      // even on days with no activity.
-      final points = <MultiSeriesDataPoint>[];
-      for (var i = 0; i < days; i++) {
-        final day = from.add(Duration(days: i));
-        final key = _dayKey(day);
-        points.add(
-          MultiSeriesDataPoint(
-            label: DateFormat('dd MMM').format(day),
-            series: {
-              for (var s = 0; s < _trendSeries.length; s++)
-                _trendSeries[s]: results[s][key] ?? 0,
-            },
-          ),
-        );
-      }
-      return Right(points);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+          // Seed every day in the window so the chart keeps a continuous x-axis
+          // even on days with no activity.
+          final points = <MultiSeriesDataPoint>[];
+          for (var i = 0; i < days; i++) {
+            final day = from.add(Duration(days: i));
+            final key = _dayKey(day);
+            points.add(
+              MultiSeriesDataPoint(
+                label: DateFormat('dd MMM').format(day),
+                series: {
+                  for (var s = 0; s < _trendSeries.length; s++)
+                    _trendSeries[s]: results[s][key] ?? 0,
+                },
+              ),
+            );
+          }
+          return Right(points);
+        } on FirebaseException catch (e) {
+          return Left('Database error: ${e.message}');
+        } catch (_) {
+          return const Left('An unexpected error occurred');
+        }
+      },
+    );
   }
 
   /// Groups one stage's quantity by calendar day for records on or after [from].
@@ -351,30 +386,38 @@ class DashboardRepository implements IDashboardRepository {
 
   @override
   Future<Either<String, List<ChartDataPoint>>> getFactoryComparison() async {
-    try {
-      final results = await Future.wait([
-        _factoryTotals(_cutting, 'cuttingQuantity'),
-        _factoryTotals(_sewing, 'sewingQuantity'),
-        _factoryTotals(_production, 'quantity'),
-      ]);
-      final merged = <String, double>{};
-      for (final grouped in results) {
-        grouped.forEach((factory, total) {
-          merged[factory] = (merged[factory] ?? 0) + total;
-        });
-      }
-      final points =
-          merged.entries
-              .where((e) => e.value > 0)
-              .map((e) => ChartDataPoint(label: e.key, value: e.value))
-              .toList()
-            ..sort((a, b) => b.value.compareTo(a.value));
-      return Right(points.take(8).toList());
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<ChartDataPoint>>>(
+          module: 'dashboard',
+          operation: 'getFactoryComparison',
+          documentId: '',
+          body: () async {
+            try {
+              final results = await Future.wait([
+                _factoryTotals(_cutting, 'cuttingQuantity'),
+                _factoryTotals(_sewing, 'sewingQuantity'),
+                _factoryTotals(_production, 'quantity'),
+              ]);
+              final merged = <String, double>{};
+              for (final grouped in results) {
+                grouped.forEach((factory, total) {
+                  merged[factory] = (merged[factory] ?? 0) + total;
+                });
+              }
+              final points =
+                  merged.entries
+                      .where((e) => e.value > 0)
+                      .map((e) => ChartDataPoint(label: e.key, value: e.value))
+                      .toList()
+                    ..sort((a, b) => b.value.compareTo(a.value));
+              return Right(points.take(8).toList());
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   Future<Map<String, double>> _factoryTotals(
@@ -400,40 +443,51 @@ class DashboardRepository implements IDashboardRepository {
 
   @override
   Future<Either<String, List<ChartDataPoint>>> getModuleDistribution() async {
-    try {
-      final stats = await getStats();
-      return stats.fold(Left.new, (s) {
-        final counts = <String, int>{
-          'Master LC': s.masterLcCount,
-          'Purchase Order': s.poCount,
-          'Cutting': s.cuttingCount,
-          'Sewing': s.sewingCount,
-          'Production': s.productionCount,
-          'Issue': s.issueCount,
-          'Export': s.exportCount,
-        };
-        final total = counts.values.fold(0, (running, v) => running + v);
-        if (total == 0) return const Right(<ChartDataPoint>[]);
-        final points =
-            counts.entries
-                .where((e) => e.value > 0)
-                .map(
-                  (e) => ChartDataPoint(
-                    label: e.key,
-                    // Stored as a percentage so the pie's slice labels and the
-                    // legend share one number.
-                    value: (e.value / total) * 100,
-                  ),
-                )
-                .toList()
-              ..sort((a, b) => b.value.compareTo(a.value));
-        return Right(points);
-      });
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<ChartDataPoint>>>(
+          module: 'dashboard',
+          operation: 'getModuleDistribution',
+          documentId: '',
+          body: () async {
+            try {
+              final stats = await getStats();
+              return stats.fold(Left.new, (s) {
+                final counts = <String, int>{
+                  'Master LC': s.masterLcCount,
+                  'Purchase Order': s.poCount,
+                  'Cutting': s.cuttingCount,
+                  'Sewing': s.sewingCount,
+                  'Production': s.productionCount,
+                  'Issue': s.issueCount,
+                  'Export': s.exportCount,
+                };
+                final total = counts.values.fold(
+                  0,
+                  (running, v) => running + v,
+                );
+                if (total == 0) return const Right(<ChartDataPoint>[]);
+                final points =
+                    counts.entries
+                        .where((e) => e.value > 0)
+                        .map(
+                          (e) => ChartDataPoint(
+                            label: e.key,
+                            // Stored as a percentage so the pie's slice labels and the
+                            // legend share one number.
+                            value: (e.value / total) * 100,
+                          ),
+                        )
+                        .toList()
+                      ..sort((a, b) => b.value.compareTo(a.value));
+                return Right(points);
+              });
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   // ----------------------------------------------------------- comparison
@@ -448,61 +502,74 @@ class DashboardRepository implements IDashboardRepository {
     required String label,
     required String department,
   }) async {
-    try {
-      // Callers may omit the field name for a stage whose canonical column is
-      // `quantity`; fall back to it rather than querying a blank field.
-      final quantityKey = quantityField.isEmpty ? 'quantity' : quantityField;
-      final stampFrom = Timestamp.fromDate(fromDate);
-      // Include the whole of the final day.
-      final stampTo = Timestamp.fromDate(
-        DateTime(toDate.year, toDate.month, toDate.day, 23, 59, 59),
-      );
+    return ActivityLogService.instance
+        .trackRead<Either<String, ComparisonRangeEntity>>(
+          module: 'dashboard',
+          operation: 'getComparisonData',
+          documentId: '',
+          body: () async {
+            try {
+              // Callers may omit the field name for a stage whose canonical column is
+              // `quantity`; fall back to it rather than querying a blank field.
+              final quantityKey = quantityField.isEmpty
+                  ? 'quantity'
+                  : quantityField;
+              final stampFrom = Timestamp.fromDate(fromDate);
+              // Include the whole of the final day.
+              final stampTo = Timestamp.fromDate(
+                DateTime(toDate.year, toDate.month, toDate.day, 23, 59, 59),
+              );
 
-      final snapshot = await _db
-          .collection(collection)
-          .where(dateField, isGreaterThanOrEqualTo: stampFrom)
-          .where(dateField, isLessThanOrEqualTo: stampTo)
-          .limit(queryLimit)
-          .get();
+              final snapshot = await _db
+                  .collection(collection)
+                  .where(dateField, isGreaterThanOrEqualTo: stampFrom)
+                  .where(dateField, isLessThanOrEqualTo: stampTo)
+                  .limit(queryLimit)
+                  .get();
 
-      // Month buckets keyed by sortable `yyyy-MM-01` so ordering needs no date
-      // map.
-      final grouped = <String, int>{};
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        final date = _date(data[dateField]);
-        if (date == null) continue;
-        final key = _monthKeyIso(date);
-        grouped[key] =
-            (grouped[key] ?? 0) + _readQuantity(data, quantityKey);
-      }
+              // Month buckets keyed by sortable `yyyy-MM-01` so ordering needs no date
+              // map.
+              final grouped = <String, int>{};
+              for (final doc in snapshot.docs) {
+                final data = doc.data();
+                final date = _date(data[dateField]);
+                if (date == null) continue;
+                final key = _monthKeyIso(date);
+                grouped[key] =
+                    (grouped[key] ?? 0) + _readQuantity(data, quantityKey);
+              }
 
-      final months = grouped.keys.toList()..sort();
-      final monthly = months
-          .map(
-            (key) => MonthlyDataPoint(
-              month: monthKey(DateTime.parse(key)),
-              monthDate: DateTime.parse(key),
-              quantity: grouped[key] ?? 0,
-            ),
-          )
-          .toList();
+              final months = grouped.keys.toList()..sort();
+              final monthly = months
+                  .map(
+                    (key) => MonthlyDataPoint(
+                      month: monthKey(DateTime.parse(key)),
+                      monthDate: DateTime.parse(key),
+                      quantity: grouped[key] ?? 0,
+                    ),
+                  )
+                  .toList();
 
-      return Right(
-        ComparisonRangeEntity(
-          label: label,
-          department: department,
-          fromDate: fromDate,
-          toDate: toDate,
-          totalQuantity: grouped.values.fold(0, (running, v) => running + v),
-          monthlyData: monthly,
-        ),
-      );
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+              return Right(
+                ComparisonRangeEntity(
+                  label: label,
+                  department: department,
+                  fromDate: fromDate,
+                  toDate: toDate,
+                  totalQuantity: grouped.values.fold(
+                    0,
+                    (running, v) => running + v,
+                  ),
+                  monthlyData: monthly,
+                ),
+              );
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   // ----------------------------------------------------- advanced matrix
@@ -517,85 +584,91 @@ class DashboardRepository implements IDashboardRepository {
     required DateTime fromDate,
     required DateTime toDate,
   }) async {
-    if (collections.isEmpty || collections.length != dateFields.length) {
-      return const Left('Select at least one valid department.');
-    }
-
-    try {
-      final from = Timestamp.fromDate(
-        DateTime(fromDate.year, fromDate.month, fromDate.day),
-      );
-      final to = Timestamp.fromDate(
-        DateTime(toDate.year, toDate.month, toDate.day, 23, 59, 59),
-      );
-      final snapshots = await Future.wait(
-        List.generate(
-          collections.length,
-          (index) => _db
-              .collection(collections[index])
-              .where(dateFields[index], isGreaterThanOrEqualTo: from)
-              .where(dateFields[index], isLessThanOrEqualTo: to)
-              // An advanced matrix only runs after an explicit user action.
-              // Keep the broader cap requested for that deliberate analysis.
-              .limit(1000)
-              .get(),
-        ),
-      );
-
-      final values = <String, Map<String, double>>{};
-      for (var index = 0; index < snapshots.length; index++) {
-        final collection = collections[index];
-        final dateField = dateFields[index];
-        for (final document in snapshots[index].docs) {
-          final data = document.data();
-          final x = _matrixCriteriaValue(
-            data,
-            xCriteria,
-            dateField: dateField,
-            collection: collection,
-          );
-          final y = _matrixCriteriaValue(
-            data,
-            yCriteria,
-            dateField: dateField,
-            collection: collection,
-          );
-          final z = valueType == ValueType.quantity
-              ? _readAnyQuantity(data)
-              : _readAnyValue(data);
-          values.putIfAbsent(x, () => <String, double>{});
-          values[x]![y] = (values[x]![y] ?? 0) + z;
+    return ActivityLogService.instance.trackRead<
+      Either<String, ComparisonMatrix>
+    >(
+      module: 'dashboard',
+      operation: 'getComparisonMatrix',
+      documentId: '',
+      body: () async {
+        if (collections.isEmpty || collections.length != dateFields.length) {
+          return const Left('Select at least one valid department.');
         }
-      }
 
-      final xLabels = values.keys.toList()..sort();
-      final yLabels = values.values
-          .expand((row) => row.keys)
-          .toSet()
-          .toList()
-        ..sort();
-      final data = [
-        for (final y in yLabels)
-          [for (final x in xLabels) values[x]?[y] ?? 0],
-      ];
+        try {
+          final from = Timestamp.fromDate(
+            DateTime(fromDate.year, fromDate.month, fromDate.day),
+          );
+          final to = Timestamp.fromDate(
+            DateTime(toDate.year, toDate.month, toDate.day, 23, 59, 59),
+          );
+          final snapshots = await Future.wait(
+            List.generate(
+              collections.length,
+              (index) => _db
+                  .collection(collections[index])
+                  .where(dateFields[index], isGreaterThanOrEqualTo: from)
+                  .where(dateFields[index], isLessThanOrEqualTo: to)
+                  // An advanced matrix only runs after an explicit user action.
+                  // Keep the broader cap requested for that deliberate analysis.
+                  .limit(1000)
+                  .get(),
+            ),
+          );
 
-      return Right(
-        ComparisonMatrix(
-          xCriteria: xCriteria,
-          yCriteria: yCriteria,
-          valueType: valueType,
-          fromDate: fromDate,
-          toDate: toDate,
-          xLabels: xLabels,
-          yLabels: yLabels,
-          data: data,
-        ),
-      );
-    } on FirebaseException catch (error) {
-      return Left('Database error: ${error.message}');
-    } catch (_) {
-      return const Left('Unable to build the comparison matrix.');
-    }
+          final values = <String, Map<String, double>>{};
+          for (var index = 0; index < snapshots.length; index++) {
+            final collection = collections[index];
+            final dateField = dateFields[index];
+            for (final document in snapshots[index].docs) {
+              final data = document.data();
+              final x = _matrixCriteriaValue(
+                data,
+                xCriteria,
+                dateField: dateField,
+                collection: collection,
+              );
+              final y = _matrixCriteriaValue(
+                data,
+                yCriteria,
+                dateField: dateField,
+                collection: collection,
+              );
+              final z = valueType == ValueType.quantity
+                  ? _readAnyQuantity(data)
+                  : _readAnyValue(data);
+              values.putIfAbsent(x, () => <String, double>{});
+              values[x]![y] = (values[x]![y] ?? 0) + z;
+            }
+          }
+
+          final xLabels = values.keys.toList()..sort();
+          final yLabels =
+              values.values.expand((row) => row.keys).toSet().toList()..sort();
+          final data = [
+            for (final y in yLabels)
+              [for (final x in xLabels) values[x]?[y] ?? 0],
+          ];
+
+          return Right(
+            ComparisonMatrix(
+              xCriteria: xCriteria,
+              yCriteria: yCriteria,
+              valueType: valueType,
+              fromDate: fromDate,
+              toDate: toDate,
+              xLabels: xLabels,
+              yLabels: yLabels,
+              data: data,
+            ),
+          );
+        } on FirebaseException catch (error) {
+          return Left('Database error: ${error.message}');
+        } catch (_) {
+          return const Left('Unable to build the comparison matrix.');
+        }
+      },
+    );
   }
 
   static String _matrixCriteriaValue(

@@ -7,8 +7,10 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../core/services/activity/activity_log_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
+
 import '../../core/constants/app_constants.dart';
 import '../../domain/entities/master_lc_entity.dart';
 import '../../domain/repositories/i_master_lc_repository.dart';
@@ -33,53 +35,82 @@ class MasterLCRepository implements IMasterLCRepository {
     int page = 0,
     int limit = 20,
   }) async {
-    try {
-      if (page == 0) _lastDoc = null;
-      var query = _collection.orderBy('sl');
-      if (page > 0 && _lastDoc != null) {
-        query = query.startAfterDocument(_lastDoc!);
-      }
-      final snapshot = await query.limit(limit).get();
-      if (snapshot.docs.isNotEmpty) _lastDoc = snapshot.docs.last;
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<MasterLCModel>>>(
+          module: 'master_lc',
+          operation: 'getMasterLCList',
+          documentId: '',
+          body: () async {
+            try {
+              if (page == 0) _lastDoc = null;
+              var query = _collection.orderBy('sl');
+              if (page > 0 && _lastDoc != null) {
+                query = query.startAfterDocument(_lastDoc!);
+              }
+              final snapshot = await query.limit(limit).get();
+              if (snapshot.docs.isNotEmpty) _lastDoc = snapshot.docs.last;
 
-      final list = snapshot.docs
-          .map((doc) => MasterLCModel.fromSnapshot(doc))
-          .toList();
+              final list = snapshot.docs
+                  .map((doc) => MasterLCModel.fromSnapshot(doc))
+                  .toList();
 
-      return Right(list);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (e) {
-      return const Left('An unexpected error occurred');
-    }
+              return Right(list);
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (e) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   @override
   Future<Either<String, MasterLCEntity?>> byTag(String tag) async {
-    try {
-      final s = await _collection.where('tagNo', isEqualTo: tag).limit(1).get();
-      return Right(
-        s.docs.isEmpty ? null : MasterLCModel.fromSnapshot(s.docs.first),
-      );
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (e) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, MasterLCEntity?>>(
+          module: 'master_lc',
+          operation: 'byTag',
+          documentId: '',
+          body: () async {
+            try {
+              final s = await _collection
+                  .where('tagNo', isEqualTo: tag)
+                  .limit(1)
+                  .get();
+              return Right(
+                s.docs.isEmpty
+                    ? null
+                    : MasterLCModel.fromSnapshot(s.docs.first),
+              );
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (e) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   @override
   Future<Either<String, MasterLCEntity?>> byId(String id) async {
-    try {
-      final snapshot = await _collection.doc(id).get();
-      return Right(
-        snapshot.exists ? MasterLCModel.fromSnapshot(snapshot) : null,
-      );
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (e) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, MasterLCEntity?>>(
+          module: 'master_lc',
+          operation: 'byId',
+          documentId: id,
+          body: () async {
+            try {
+              final snapshot = await _collection.doc(id).get();
+              return Right(
+                snapshot.exists ? MasterLCModel.fromSnapshot(snapshot) : null,
+              );
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (e) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   /// Next available serial number (max stored `sl` + 1, or 1 when empty).
@@ -90,25 +121,32 @@ class MasterLCRepository implements IMasterLCRepository {
   /// stored maximum so the two sources are reconciled rather than drifting.
   @override
   Future<int> getMaxSl() async {
-    try {
-      final counterSnapshot = await _counterDoc.get();
-      final counter = counterSnapshot.data()?['value'];
-      var next = counter is num ? counter.toInt() : 0;
+    return ActivityLogService.instance.trackRead<int>(
+      module: 'master_lc',
+      operation: 'getMaxSl',
+      documentId: '',
+      body: () async {
+        try {
+          final counterSnapshot = await _counterDoc.get();
+          final counter = counterSnapshot.data()?['value'];
+          var next = counter is num ? counter.toInt() : 0;
 
-      final snapshot = await _collection
-          .orderBy('sl', descending: true)
-          .limit(1)
-          .get();
-      final maxStored = snapshot.docs.isEmpty
-          ? 0
-          : _int(snapshot.docs.first.data()['sl']);
+          final snapshot = await _collection
+              .orderBy('sl', descending: true)
+              .limit(1)
+              .get();
+          final maxStored = snapshot.docs.isEmpty
+              ? 0
+              : _int(snapshot.docs.first.data()['sl']);
 
-      // Never hand out a value that collides with an existing record.
-      if (maxStored > next) next = maxStored;
-      return next + 1;
-    } catch (_) {
-      return 1;
-    }
+          // Never hand out a value that collides with an existing record.
+          if (maxStored > next) next = maxStored;
+          return next + 1;
+        } catch (_) {
+          return 1;
+        }
+      },
+    );
   }
 
   static int _int(Object? value) => value is num
@@ -117,40 +155,54 @@ class MasterLCRepository implements IMasterLCRepository {
 
   @override
   Future<Either<String, List<String>>> getProjectList() async {
-    try {
-      final snapshot = await _collection.limit(1000).get();
-      final projects =
-          snapshot.docs
-              .map((doc) => doc.data()['project']?.toString().trim() ?? '')
-              .where((value) => value.isNotEmpty)
-              .toSet()
-              .toList()
-            ..sort();
-      return Right(projects);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance.trackRead<Either<String, List<String>>>(
+      module: 'master_lc',
+      operation: 'getProjectList',
+      documentId: '',
+      body: () async {
+        try {
+          final snapshot = await _collection.limit(1000).get();
+          final projects =
+              snapshot.docs
+                  .map((doc) => doc.data()['project']?.toString().trim() ?? '')
+                  .where((value) => value.isNotEmpty)
+                  .toSet()
+                  .toList()
+                ..sort();
+          return Right(projects);
+        } on FirebaseException catch (e) {
+          return Left('Database error: ${e.message}');
+        } catch (_) {
+          return const Left('An unexpected error occurred');
+        }
+      },
+    );
   }
 
   @override
   Future<Either<String, List<String>>> getCompanyList() async {
-    try {
-      final snapshot = await _collection.limit(1000).get();
-      final companies =
-          snapshot.docs
-              .map((doc) => doc.data()['company']?.toString().trim() ?? '')
-              .where((value) => value.isNotEmpty)
-              .toSet()
-              .toList()
-            ..sort();
-      return Right(companies);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance.trackRead<Either<String, List<String>>>(
+      module: 'master_lc',
+      operation: 'getCompanyList',
+      documentId: '',
+      body: () async {
+        try {
+          final snapshot = await _collection.limit(1000).get();
+          final companies =
+              snapshot.docs
+                  .map((doc) => doc.data()['company']?.toString().trim() ?? '')
+                  .where((value) => value.isNotEmpty)
+                  .toSet()
+                  .toList()
+                ..sort();
+          return Right(companies);
+        } on FirebaseException catch (e) {
+          return Left('Database error: ${e.message}');
+        } catch (_) {
+          return const Left('An unexpected error occurred');
+        }
+      },
+    );
   }
 
   @override
@@ -289,4 +341,3 @@ class _MasterLCValidationException implements Exception {
   const _MasterLCValidationException(this.message);
   final String message;
 }
-

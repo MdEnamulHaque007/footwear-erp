@@ -7,6 +7,7 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../core/services/activity/activity_log_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -40,32 +41,40 @@ class SettingsRepository implements ISettingsRepository {
 
   @override
   Future<Either<String, AppSettingsEntity>> getAppSettings() async {
-    try {
-      final local = await _localService.getAppSettings();
-      if (local != null) return Right(local);
+    return ActivityLogService.instance
+        .trackRead<Either<String, AppSettingsEntity>>(
+          module: 'settings',
+          operation: 'getAppSettings',
+          documentId: '',
+          body: () async {
+            try {
+              final local = await _localService.getAppSettings();
+              if (local != null) return Right(local);
 
-      final uid = _auth.currentUser?.uid;
-      if (uid != null) {
-        final document = await _firestore
-            .collection(_collectionUsers)
-            .doc(uid)
-            .collection(_collectionPreferences)
-            .doc(_docApp)
-            .get();
-        final data = document.data();
-        if (document.exists && data != null) {
-          final model = AppSettingsModel.fromJson(data);
-          await _localService.saveAppSettings(model);
-          return Right(model);
-        }
-      }
+              final uid = _auth.currentUser?.uid;
+              if (uid != null) {
+                final document = await _firestore
+                    .collection(_collectionUsers)
+                    .doc(uid)
+                    .collection(_collectionPreferences)
+                    .doc(_docApp)
+                    .get();
+                final data = document.data();
+                if (document.exists && data != null) {
+                  final model = AppSettingsModel.fromJson(data);
+                  await _localService.saveAppSettings(model);
+                  return Right(model);
+                }
+              }
 
-      final defaults = AppSettingsEntity.defaults();
-      await _localService.saveAppSettings(defaults);
-      return Right(defaults);
-    } catch (error) {
-      return Left('Failed to load app settings: $error');
-    }
+              final defaults = AppSettingsEntity.defaults();
+              await _localService.saveAppSettings(defaults);
+              return Right(defaults);
+            } catch (error) {
+              return Left('Failed to load app settings: $error');
+            }
+          },
+        );
   }
 
   @override
@@ -91,27 +100,35 @@ class SettingsRepository implements ISettingsRepository {
 
   @override
   Future<Either<String, BusinessSettingsEntity>> getBusinessSettings() async {
-    try {
-      if (DevConfig.bypassAuth) {
-        final local = await _localService.getBusinessSettings();
-        if (local != null) return Right(local);
-        final defaults = BusinessSettingsEntity.defaults();
-        await _localService.saveBusinessSettings(defaults);
-        return Right(defaults);
-      }
+    return ActivityLogService.instance
+        .trackRead<Either<String, BusinessSettingsEntity>>(
+          module: 'settings',
+          operation: 'getBusinessSettings',
+          documentId: '',
+          body: () async {
+            try {
+              if (DevConfig.bypassAuth) {
+                final local = await _localService.getBusinessSettings();
+                if (local != null) return Right(local);
+                final defaults = BusinessSettingsEntity.defaults();
+                await _localService.saveBusinessSettings(defaults);
+                return Right(defaults);
+              }
 
-      final document = await _firestore
-          .collection(_collectionSettings)
-          .doc(_docBusiness)
-          .get();
-      final data = document.data();
-      if (!document.exists || data == null) {
-        return Right(BusinessSettingsEntity.defaults());
-      }
-      return Right(BusinessSettingsModel.fromJson(data));
-    } catch (error) {
-      return Left('Failed to load business settings: $error');
-    }
+              final document = await _firestore
+                  .collection(_collectionSettings)
+                  .doc(_docBusiness)
+                  .get();
+              final data = document.data();
+              if (!document.exists || data == null) {
+                return Right(BusinessSettingsEntity.defaults());
+              }
+              return Right(BusinessSettingsModel.fromJson(data));
+            } catch (error) {
+              return Left('Failed to load business settings: $error');
+            }
+          },
+        );
   }
 
   @override

@@ -7,6 +7,7 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../core/services/activity/activity_log_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
 
@@ -28,42 +29,53 @@ class TimelapseRepository implements ITimelapseRepository {
     required DateTime toDate,
     required DataType dataType,
   }) async {
-    if (departments.isEmpty) {
-      return const Left('Select at least one department.');
-    }
-    final from = _day(fromDate);
-    final to = _day(toDate);
-    if (!from.isBefore(to)) {
-      return const Left('The start date must be before the end date.');
-    }
+    return ActivityLogService.instance.trackRead<Either<String, TimelapseData>>(
+      module: 'dashboard',
+      operation: 'getTimelapseData',
+      documentId: '',
+      body: () async {
+        if (departments.isEmpty) {
+          return const Left('Select at least one department.');
+        }
+        final from = _day(fromDate);
+        final to = _day(toDate);
+        if (!from.isBefore(to)) {
+          return const Left('The start date must be before the end date.');
+        }
 
-    try {
-      final dailyTotals = await Future.wait(
-        departments.map((department) => _loadDailyTotals(
-          department: department,
-          from: from,
-          to: to,
-          dataType: dataType,
-        )),
-      );
-      final dates = _daysBetween(from, to);
-      final series = <TimelapseSeries>[
-        for (var index = 0; index < departments.length; index++)
-          _cumulativeSeries(departments[index], dates, dailyTotals[index]),
-      ];
-      return Right(
-        TimelapseData(
-          series: series,
-          fromDate: from,
-          toDate: to,
-          totalPoints: dates.length,
-        ),
-      );
-    } on FirebaseException catch (error) {
-      return Left('Failed to load time-lapse data: ${error.message ?? error.code}');
-    } catch (error) {
-      return Left('Failed to load time-lapse data: $error');
-    }
+        try {
+          final dailyTotals = await Future.wait(
+            departments.map(
+              (department) => _loadDailyTotals(
+                department: department,
+                from: from,
+                to: to,
+                dataType: dataType,
+              ),
+            ),
+          );
+          final dates = _daysBetween(from, to);
+          final series = <TimelapseSeries>[
+            for (var index = 0; index < departments.length; index++)
+              _cumulativeSeries(departments[index], dates, dailyTotals[index]),
+          ];
+          return Right(
+            TimelapseData(
+              series: series,
+              fromDate: from,
+              toDate: to,
+              totalPoints: dates.length,
+            ),
+          );
+        } on FirebaseException catch (error) {
+          return Left(
+            'Failed to load time-lapse data: ${error.message ?? error.code}',
+          );
+        } catch (error) {
+          return Left('Failed to load time-lapse data: $error');
+        }
+      },
+    );
   }
 
   Future<Map<DateTime, double>> _loadDailyTotals({
@@ -95,10 +107,7 @@ class TimelapseRepository implements ITimelapseRepository {
           department.dateField,
           isGreaterThanOrEqualTo: Timestamp.fromDate(from),
         )
-        .where(
-          department.dateField,
-          isLessThanOrEqualTo: endTimestamp,
-        )
+        .where(department.dateField, isLessThanOrEqualTo: endTimestamp)
         .orderBy(department.dateField)
         .get();
 
@@ -122,16 +131,17 @@ class TimelapseRepository implements ITimelapseRepository {
       department: department,
       points: [
         for (final date in dates)
-          TimelapseDataPoint(
-            date: date,
-            value: running += totals[date] ?? 0,
-          ),
+          TimelapseDataPoint(date: date, value: running += totals[date] ?? 0),
       ],
     );
   }
 
   static List<DateTime> _daysBetween(DateTime from, DateTime to) => [
-    for (var day = from; !day.isAfter(to); day = day.add(const Duration(days: 1)))
+    for (
+      var day = from;
+      !day.isAfter(to);
+      day = day.add(const Duration(days: 1))
+    )
       day,
   ];
 

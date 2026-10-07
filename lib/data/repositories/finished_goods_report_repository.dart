@@ -7,8 +7,10 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../core/services/activity/activity_log_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
+
 import '../../core/constants/app_constants.dart';
 import '../../domain/entities/reports/finished_goods_report_entity.dart';
 import '../../domain/repositories/i_finished_goods_report_repository.dart';
@@ -40,23 +42,32 @@ class FinishedGoodsReportRepository implements IFinishedGoodsReportRepository {
   static const int _queryLimit = 1000;
 
   @override
-  Future<Either<String, List<FinishedGoodsReportEntity>>> getFinishedGoodsReport({
+  Future<Either<String, List<FinishedGoodsReportEntity>>>
+  getFinishedGoodsReport({
     required DateTime fromDate,
     required DateTime toDate,
     String search = '',
   }) async {
-    try {
-      final rows = await _buildRows(
-        fromDate: fromDate,
-        toDate: toDate,
-        search: search,
-      );
-      return Right(rows);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<FinishedGoodsReportEntity>>>(
+          module: 'reports',
+          operation: 'getFinishedGoodsReport',
+          documentId: '',
+          body: () async {
+            try {
+              final rows = await _buildRows(
+                fromDate: fromDate,
+                toDate: toDate,
+                search: search,
+              );
+              return Right(rows);
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   @override
@@ -65,18 +76,26 @@ class FinishedGoodsReportRepository implements IFinishedGoodsReportRepository {
     required DateTime toDate,
     String search = '',
   }) async {
-    try {
-      final rows = await _buildRows(
-        fromDate: fromDate,
-        toDate: toDate,
-        search: search,
-      );
-      return Right(FinishedGoodsReportSummary.fromRows(rows));
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, FinishedGoodsReportSummary>>(
+          module: 'reports',
+          operation: 'getReportSummary',
+          documentId: '',
+          body: () async {
+            try {
+              final rows = await _buildRows(
+                fromDate: fromDate,
+                toDate: toDate,
+                search: search,
+              );
+              return Right(FinishedGoodsReportSummary.fromRows(rows));
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   /// Reads the four source slices, discovers the distinct lines, then folds each

@@ -7,6 +7,7 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../../core/services/activity/activity_log_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -120,24 +121,30 @@ class AuthRemoteDataSource {
   /// login with no data — the root cause of the ambiguous
   /// "Missing or insufficient permissions" report.
   Future<UserModel?> _loadProfile(User? user) async {
-    if (user == null) return null;
-    final snapshot = await _firestore
-        .collection(AppConstants.collectionUsers)
-        .doc(user.uid)
-        .get()
-        .timeout(const Duration(seconds: 10));
-    if (!snapshot.exists) {
-      throw ProfileMissingException(user.uid);
-    }
-    return UserModel.fromFirestore(snapshot);
+    return ActivityLogService.instance.trackRead<UserModel?>(
+      module: 'user_management',
+      operation: 'loadProfile',
+      documentId: user?.uid ?? '',
+      body: () async {
+        if (user == null) return null;
+        final snapshot = await _firestore
+            .collection(AppConstants.collectionUsers)
+            .doc(user.uid)
+            .get()
+            .timeout(const Duration(seconds: 10));
+        if (!snapshot.exists) {
+          throw ProfileMissingException(user.uid);
+        }
+        return UserModel.fromFirestore(snapshot);
+      },
+    );
   }
 
   Future<UserModel?> _safeLoadProfile(User? user) async {
     if (user == null) return null;
     try {
-      return await _loadProfile(
-        user,
-      ).timeout(const Duration(seconds: 10), onTimeout: () => null);
+      return await _loadProfile(user)
+          .timeout(const Duration(seconds: 10), onTimeout: () => null);
     } on ProfileMissingException {
       // Let the caller decide (the bootstrap flow needs to see this).
       rethrow;

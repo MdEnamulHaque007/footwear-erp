@@ -109,7 +109,12 @@ class AppDrawer extends StatelessWidget {
                       RouteConstants.warehouseReport,
                     ),
                     if (isAdmin)
-                      _item(context, 'Audit Log', Icons.history, '/audit-log'),
+                      _item(
+                        context,
+                        'Activity Log',
+                        Icons.history,
+                        '/audit-log',
+                      ),
                   ]),
                   _section(context, 'SETTINGS', [
                     ListTile(
@@ -248,7 +253,10 @@ class _UserHeader extends StatelessWidget {
             radius: 24,
             backgroundColor: Colors.white.withValues(alpha: 0.92),
             foregroundColor: ColorPalette.primary,
-            child: Text(initial, style: const TextStyle(fontWeight: FontWeight.w800)),
+            child: Text(
+              initial,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(

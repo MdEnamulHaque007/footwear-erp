@@ -7,8 +7,10 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../core/services/activity/activity_log_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
+
 import '../../core/constants/app_constants.dart';
 import '../../domain/entities/role_entity.dart';
 import '../../domain/repositories/i_role_repository.dart';
@@ -21,18 +23,26 @@ class RoleRepository implements IRoleRepository {
 
   @override
   Future<Either<String, List<RoleEntity>>> getAllRoles() async {
-    try {
-      final snapshot = await _firestore
-          .collection(AppConstants.collectionRoles)
-          .limit(20)
-          .get();
-      final roles = snapshot.docs.map(RoleModel.fromFirestore).toList();
-      return Right(roles);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (e) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<RoleEntity>>>(
+          module: 'role_management',
+          operation: 'getAllRoles',
+          documentId: '',
+          body: () async {
+            try {
+              final snapshot = await _firestore
+                  .collection(AppConstants.collectionRoles)
+                  .limit(20)
+                  .get();
+              final roles = snapshot.docs.map(RoleModel.fromFirestore).toList();
+              return Right(roles);
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (e) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   @override

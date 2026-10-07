@@ -7,8 +7,10 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../core/services/activity/activity_log_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
+
 import '../../core/constants/app_constants.dart';
 import '../../domain/entities/production_entity.dart';
 import '../../domain/repositories/i_production_repository.dart';
@@ -36,35 +38,58 @@ class ProductionRepository implements IProductionRepository {
     int page = 0,
     int limit = 20,
   }) async {
-    try {
-      if (page == 0) _lastDoc = null;
-      var query = _collection.orderBy('productionDate', descending: true);
-      if (page > 0 && _lastDoc != null) {
-        query = query.startAfterDocument(_lastDoc!);
-      }
-      final snapshot = await query.limit(limit).get();
-      if (snapshot.docs.isNotEmpty) _lastDoc = snapshot.docs.last;
-      return Right(snapshot.docs.map(ProductionModel.fromSnapshot).toList());
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<ProductionModel>>>(
+          module: 'production',
+          operation: 'getProductionList',
+          documentId: '',
+          body: () async {
+            try {
+              if (page == 0) _lastDoc = null;
+              var query = _collection.orderBy(
+                'productionDate',
+                descending: true,
+              );
+              if (page > 0 && _lastDoc != null) {
+                query = query.startAfterDocument(_lastDoc!);
+              }
+              final snapshot = await query.limit(limit).get();
+              if (snapshot.docs.isNotEmpty) _lastDoc = snapshot.docs.last;
+              return Right(
+                snapshot.docs.map(ProductionModel.fromSnapshot).toList(),
+              );
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   @override
   Future<Either<String, List<ProductionModel>>> byPoTag(String poTagNo) async {
-    try {
-      final snapshot = await _collection
-          .where('tagNo', isEqualTo: poTagNo)
-          .orderBy('sl')
-          .get();
-      return Right(snapshot.docs.map(ProductionModel.fromSnapshot).toList());
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<ProductionModel>>>(
+          module: 'production',
+          operation: 'byPoTag',
+          documentId: '',
+          body: () async {
+            try {
+              final snapshot = await _collection
+                  .where('tagNo', isEqualTo: poTagNo)
+                  .orderBy('sl')
+                  .get();
+              return Right(
+                snapshot.docs.map(ProductionModel.fromSnapshot).toList(),
+              );
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   /// Distinct PO No list taken from the Sewing entries.
@@ -74,41 +99,55 @@ class ProductionRepository implements IProductionRepository {
   /// the full Purchase Order collection.
   @override
   Future<Either<String, List<String>>> getSewingEntryPONoList() async {
-    try {
-      final snapshot = await _sewingCollection.limit(1000).get();
-      final poNos =
-          snapshot.docs
-              .map((doc) => _string(doc.data()['poNo']))
-              .where((poNo) => poNo.isNotEmpty)
-              .toSet()
-              .toList()
-            ..sort();
-      return Right(poNos);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance.trackRead<Either<String, List<String>>>(
+      module: 'production',
+      operation: 'getSewingEntryPONoList',
+      documentId: '',
+      body: () async {
+        try {
+          final snapshot = await _sewingCollection.limit(1000).get();
+          final poNos =
+              snapshot.docs
+                  .map((doc) => _string(doc.data()['poNo']))
+                  .where((poNo) => poNo.isNotEmpty)
+                  .toSet()
+                  .toList()
+                ..sort();
+          return Right(poNos);
+        } on FirebaseException catch (e) {
+          return Left('Database error: ${e.message}');
+        } catch (_) {
+          return const Left('An unexpected error occurred');
+        }
+      },
+    );
   }
 
   /// Distinct PO No list taken from the Cutting entries.
   @override
   Future<Either<String, List<String>>> getCuttingEntryPONoList() async {
-    try {
-      final snapshot = await _cuttingCollection.limit(1000).get();
-      final poNos =
-          snapshot.docs
-              .map((doc) => _string(doc.data()['poNo']))
-              .where((poNo) => poNo.isNotEmpty)
-              .toSet()
-              .toList()
-            ..sort();
-      return Right(poNos);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance.trackRead<Either<String, List<String>>>(
+      module: 'production',
+      operation: 'getCuttingEntryPONoList',
+      documentId: '',
+      body: () async {
+        try {
+          final snapshot = await _cuttingCollection.limit(1000).get();
+          final poNos =
+              snapshot.docs
+                  .map((doc) => _string(doc.data()['poNo']))
+                  .where((poNo) => poNo.isNotEmpty)
+                  .toSet()
+                  .toList()
+                ..sort();
+          return Right(poNos);
+        } on FirebaseException catch (e) {
+          return Left('Database error: ${e.message}');
+        } catch (_) {
+          return const Left('An unexpected error occurred');
+        }
+      },
+    );
   }
 
   /// Distinct Article + Color pairs recorded in the Sewing entries of [poNo].
@@ -120,72 +159,95 @@ class ProductionRepository implements IProductionRepository {
   Future<Either<String, List<SewingLine>>> getSewingEntryLines(
     String poNo,
   ) async {
-    try {
-      final snapshot = await _sewingCollection
-          .where('poNo', isEqualTo: poNo)
-          .limit(1000)
-          .get();
-      final lines = <String, SewingLine>{};
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        final article = _string(data['article']);
-        final color = _string(data['color']);
-        if (article.isEmpty || color.isEmpty) continue;
-        // Case-insensitive key keeps only the first (original-case) occurrence.
-        final key = '${article.toLowerCase()}|${color.toLowerCase()}';
-        lines.putIfAbsent(
-          key,
-          () => SewingLine(article: article, color: color),
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<SewingLine>>>(
+          module: 'production',
+          operation: 'getSewingEntryLines',
+          documentId: '',
+          body: () async {
+            try {
+              final snapshot = await _sewingCollection
+                  .where('poNo', isEqualTo: poNo)
+                  .limit(1000)
+                  .get();
+              final lines = <String, SewingLine>{};
+              for (final doc in snapshot.docs) {
+                final data = doc.data();
+                final article = _string(data['article']);
+                final color = _string(data['color']);
+                if (article.isEmpty || color.isEmpty) continue;
+                // Case-insensitive key keeps only the first (original-case) occurrence.
+                final key = '${article.toLowerCase()}|${color.toLowerCase()}';
+                lines.putIfAbsent(
+                  key,
+                  () => SewingLine(article: article, color: color),
+                );
+              }
+              final result = lines.values.toList()
+                ..sort((a, b) {
+                  final byArticle = a.article.toLowerCase().compareTo(
+                    b.article.toLowerCase(),
+                  );
+                  return byArticle != 0
+                      ? byArticle
+                      : a.color.toLowerCase().compareTo(b.color.toLowerCase());
+                });
+              return Right(result);
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
         );
-      }
-      final result = lines.values.toList()
-        ..sort((a, b) {
-          final byArticle = a.article.toLowerCase().compareTo(
-            b.article.toLowerCase(),
-          );
-          return byArticle != 0
-              ? byArticle
-              : a.color.toLowerCase().compareTo(b.color.toLowerCase());
-        });
-      return Right(result);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
   }
 
   @override
   Future<Either<String, POModel?>> poByNo(String poNo) async {
-    try {
-      final snapshot = await _poCollection
-          .where('poNo', isEqualTo: poNo)
-          .limit(1)
-          .get();
-      return Right(
-        snapshot.docs.isEmpty
-            ? null
-            : POModel.fromSnapshot(snapshot.docs.first),
-      );
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance.trackRead<Either<String, POModel?>>(
+      module: 'production',
+      operation: 'poByNo',
+      documentId: '',
+      body: () async {
+        try {
+          final snapshot = await _poCollection
+              .where('poNo', isEqualTo: poNo)
+              .limit(1)
+              .get();
+          return Right(
+            snapshot.docs.isEmpty
+                ? null
+                : POModel.fromSnapshot(snapshot.docs.first),
+          );
+        } on FirebaseException catch (e) {
+          return Left('Database error: ${e.message}');
+        } catch (_) {
+          return const Left('An unexpected error occurred');
+        }
+      },
+    );
   }
 
   @override
   Future<Either<String, ProductionModel?>> byId(String id) async {
-    try {
-      final snapshot = await _collection.doc(id).get();
-      return Right(
-        snapshot.exists ? ProductionModel.fromSnapshot(snapshot) : null,
-      );
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, ProductionModel?>>(
+          module: 'production',
+          operation: 'byId',
+          documentId: id,
+          body: () async {
+            try {
+              final snapshot = await _collection.doc(id).get();
+              return Right(
+                snapshot.exists ? ProductionModel.fromSnapshot(snapshot) : null,
+              );
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   @override
@@ -194,31 +256,41 @@ class ProductionRepository implements IProductionRepository {
     required String article,
     required String color,
   }) async {
-    try {
-      // Index-independent: Article and Color are filtered locally so the detail
-      // view also works before composite indexes finish building in Firestore.
-      final snapshot = await _collection
-          .where('poNo', isEqualTo: poNo)
-          .limit(1000)
-          .get();
-      final normalizedArticle = _normalize(article);
-      final normalizedColor = _normalize(color);
-      final entries =
-          snapshot.docs
-              .map(ProductionModel.fromSnapshot)
-              .where(
-                (item) =>
-                    _normalize(item.article) == normalizedArticle &&
-                    _normalize(item.color) == normalizedColor,
-              )
-              .toList()
-            ..sort((a, b) => b.productionDate.compareTo(a.productionDate));
-      return Right(entries);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<ProductionModel>>>(
+          module: 'production',
+          operation: 'byLine',
+          documentId: '',
+          body: () async {
+            try {
+              // Index-independent: Article and Color are filtered locally so the detail
+              // view also works before composite indexes finish building in Firestore.
+              final snapshot = await _collection
+                  .where('poNo', isEqualTo: poNo)
+                  .limit(1000)
+                  .get();
+              final normalizedArticle = _normalize(article);
+              final normalizedColor = _normalize(color);
+              final entries =
+                  snapshot.docs
+                      .map(ProductionModel.fromSnapshot)
+                      .where(
+                        (item) =>
+                            _normalize(item.article) == normalizedArticle &&
+                            _normalize(item.color) == normalizedColor,
+                      )
+                      .toList()
+                    ..sort(
+                      (a, b) => b.productionDate.compareTo(a.productionDate),
+                    );
+              return Right(entries);
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   @override
@@ -226,13 +298,23 @@ class ProductionRepository implements IProductionRepository {
     required String poTagNo,
     required DateTime upToDate,
   }) async {
-    final snapshot = await _collection
-        .where('tagNo', isEqualTo: poTagNo)
-        .where('productionDate', isLessThanOrEqualTo: Timestamp.fromDate(upToDate))
-        .get();
-    return snapshot.docs.fold<int>(
-      0,
-      (total, doc) => total + _quantity(doc.data()),
+    return ActivityLogService.instance.trackRead<int>(
+      module: 'production',
+      operation: 'getCumulativeProductionQuantity',
+      documentId: '',
+      body: () async {
+        final snapshot = await _collection
+            .where('tagNo', isEqualTo: poTagNo)
+            .where(
+              'productionDate',
+              isLessThanOrEqualTo: Timestamp.fromDate(upToDate),
+            )
+            .get();
+        return snapshot.docs.fold<int>(
+          0,
+          (total, doc) => total + _quantity(doc.data()),
+        );
+      },
     );
   }
 
@@ -243,14 +325,24 @@ class ProductionRepository implements IProductionRepository {
     required String color,
     String? excludeId,
   }) async {
-    final snapshot = await _collection
-        .where('poNo', isEqualTo: poNo)
-        .limit(1000)
-        .get();
-    return _cumulative(snapshot.docs, article: article, color: color,
-        excludingId: excludeId);
+    return ActivityLogService.instance.trackRead<int>(
+      module: 'production',
+      operation: 'getCumulativeProductionQty',
+      documentId: '',
+      body: () async {
+        final snapshot = await _collection
+            .where('poNo', isEqualTo: poNo)
+            .limit(1000)
+            .get();
+        return _cumulative(
+          snapshot.docs,
+          article: article,
+          color: color,
+          excludingId: excludeId,
+        );
+      },
+    );
   }
-
 
   @override
   Future<Either<String, void>> createWithTransaction(ProductionEntity item) =>
@@ -454,9 +546,8 @@ class ProductionRepository implements IProductionRepository {
         .fold<int>(0, (total, doc) => total + _quantity(doc.data()));
   }
 
-  static int _quantity(Map<String, dynamic> data) => _number(
-    data['quantity'] ?? data['productionQuantity'],
-  );
+  static int _quantity(Map<String, dynamic> data) =>
+      _number(data['quantity'] ?? data['productionQuantity']);
 
   /// Reads the sewing quantity, falling back to the legacy `quantity` alias.
   static int _sewingQuantity(Map<String, dynamic> data) =>

@@ -7,8 +7,10 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../core/services/activity/activity_log_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
+
 import '../../core/constants/app_constants.dart';
 import '../../domain/entities/export_entity.dart';
 import '../../domain/repositories/i_export_repository.dart';
@@ -34,47 +36,76 @@ class ExportRepository implements IExportRepository {
     int page = 0,
     int limit = 20,
   }) async {
-    try {
-      if (page == 0) _lastDoc = null;
-      var query = _collection.orderBy('exportDate', descending: true);
-      if (page > 0 && _lastDoc != null) {
-        query = query.startAfterDocument(_lastDoc!);
-      }
-      final snapshot = await query.limit(limit).get();
-      if (snapshot.docs.isNotEmpty) _lastDoc = snapshot.docs.last;
-      return Right(snapshot.docs.map(ExportModel.fromSnapshot).toList());
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<ExportModel>>>(
+          module: 'export',
+          operation: 'getExportList',
+          documentId: '',
+          body: () async {
+            try {
+              if (page == 0) _lastDoc = null;
+              var query = _collection.orderBy('exportDate', descending: true);
+              if (page > 0 && _lastDoc != null) {
+                query = query.startAfterDocument(_lastDoc!);
+              }
+              final snapshot = await query.limit(limit).get();
+              if (snapshot.docs.isNotEmpty) _lastDoc = snapshot.docs.last;
+              return Right(
+                snapshot.docs.map(ExportModel.fromSnapshot).toList(),
+              );
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   @override
   Future<Either<String, List<ExportModel>>> byPoTag(String poTagNo) async {
-    try {
-      final snapshot = await _collection
-          .where('tagNo', isEqualTo: poTagNo)
-          .orderBy('sl')
-          .get();
-      return Right(snapshot.docs.map(ExportModel.fromSnapshot).toList());
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<ExportModel>>>(
+          module: 'export',
+          operation: 'byPoTag',
+          documentId: '',
+          body: () async {
+            try {
+              final snapshot = await _collection
+                  .where('tagNo', isEqualTo: poTagNo)
+                  .orderBy('sl')
+                  .get();
+              return Right(
+                snapshot.docs.map(ExportModel.fromSnapshot).toList(),
+              );
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   @override
   Future<Either<String, ExportModel?>> byId(String id) async {
-    try {
-      final snapshot = await _collection.doc(id).get();
-      return Right(snapshot.exists ? ExportModel.fromSnapshot(snapshot) : null);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance.trackRead<Either<String, ExportModel?>>(
+      module: 'export',
+      operation: 'byId',
+      documentId: id,
+      body: () async {
+        try {
+          final snapshot = await _collection.doc(id).get();
+          return Right(
+            snapshot.exists ? ExportModel.fromSnapshot(snapshot) : null,
+          );
+        } on FirebaseException catch (e) {
+          return Left('Database error: ${e.message}');
+        } catch (_) {
+          return const Left('An unexpected error occurred');
+        }
+      },
+    );
   }
 
   @override
@@ -83,31 +114,39 @@ class ExportRepository implements IExportRepository {
     required String article,
     required String color,
   }) async {
-    try {
-      // Index-independent: Article and Color are filtered locally so the detail
-      // view also works before composite indexes finish building in Firestore.
-      final snapshot = await _collection
-          .where('poNo', isEqualTo: poNo)
-          .limit(1000)
-          .get();
-      final normalizedArticle = _normalize(article);
-      final normalizedColor = _normalize(color);
-      final entries =
-          snapshot.docs
-              .map(ExportModel.fromSnapshot)
-              .where(
-                (item) =>
-                    _normalize(item.article) == normalizedArticle &&
-                    _normalize(item.color) == normalizedColor,
-              )
-              .toList()
-            ..sort((a, b) => b.exportDate.compareTo(a.exportDate));
-      return Right(entries);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<ExportModel>>>(
+          module: 'export',
+          operation: 'byLine',
+          documentId: '',
+          body: () async {
+            try {
+              // Index-independent: Article and Color are filtered locally so the detail
+              // view also works before composite indexes finish building in Firestore.
+              final snapshot = await _collection
+                  .where('poNo', isEqualTo: poNo)
+                  .limit(1000)
+                  .get();
+              final normalizedArticle = _normalize(article);
+              final normalizedColor = _normalize(color);
+              final entries =
+                  snapshot.docs
+                      .map(ExportModel.fromSnapshot)
+                      .where(
+                        (item) =>
+                            _normalize(item.article) == normalizedArticle &&
+                            _normalize(item.color) == normalizedColor,
+                      )
+                      .toList()
+                    ..sort((a, b) => b.exportDate.compareTo(a.exportDate));
+              return Right(entries);
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   /// Distinct PO No list taken from the Issue entries.
@@ -115,21 +154,28 @@ class ExportRepository implements IExportRepository {
   /// Export is only valid for a PO that has actually been issued.
   @override
   Future<Either<String, List<String>>> getIssueEntryPONoList() async {
-    try {
-      final snapshot = await _issueCollection.limit(1000).get();
-      final poNos =
-          snapshot.docs
-              .map((doc) => _string(doc.data()['poNo']))
-              .where((poNo) => poNo.isNotEmpty)
-              .toSet()
-              .toList()
-            ..sort();
-      return Right(poNos);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance.trackRead<Either<String, List<String>>>(
+      module: 'export',
+      operation: 'getIssueEntryPONoList',
+      documentId: '',
+      body: () async {
+        try {
+          final snapshot = await _issueCollection.limit(1000).get();
+          final poNos =
+              snapshot.docs
+                  .map((doc) => _string(doc.data()['poNo']))
+                  .where((poNo) => poNo.isNotEmpty)
+                  .toSet()
+                  .toList()
+                ..sort();
+          return Right(poNos);
+        } on FirebaseException catch (e) {
+          return Left('Database error: ${e.message}');
+        } catch (_) {
+          return const Left('An unexpected error occurred');
+        }
+      },
+    );
   }
 
   /// Distinct Article + Color pairs recorded in the Issue entries of [poNo],
@@ -138,57 +184,72 @@ class ExportRepository implements IExportRepository {
   Future<Either<String, List<IssueLine>>> getIssueEntryLines(
     String poNo,
   ) async {
-    try {
-      final snapshot = await _issueCollection
-          .where('poNo', isEqualTo: poNo)
-          .limit(1000)
-          .get();
-      final lines = <String, IssueLine>{};
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        final article = _string(data['article']);
-        final color = _string(data['color']);
-        if (article.isEmpty || color.isEmpty) continue;
-        final key = '${article.toLowerCase()}|${color.toLowerCase()}';
-        lines.putIfAbsent(
-          key,
-          () => IssueLine(article: article, color: color),
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<IssueLine>>>(
+          module: 'export',
+          operation: 'getIssueEntryLines',
+          documentId: '',
+          body: () async {
+            try {
+              final snapshot = await _issueCollection
+                  .where('poNo', isEqualTo: poNo)
+                  .limit(1000)
+                  .get();
+              final lines = <String, IssueLine>{};
+              for (final doc in snapshot.docs) {
+                final data = doc.data();
+                final article = _string(data['article']);
+                final color = _string(data['color']);
+                if (article.isEmpty || color.isEmpty) continue;
+                final key = '${article.toLowerCase()}|${color.toLowerCase()}';
+                lines.putIfAbsent(
+                  key,
+                  () => IssueLine(article: article, color: color),
+                );
+              }
+              final result = lines.values.toList()
+                ..sort((a, b) {
+                  final byArticle = a.article.toLowerCase().compareTo(
+                    b.article.toLowerCase(),
+                  );
+                  return byArticle != 0
+                      ? byArticle
+                      : a.color.toLowerCase().compareTo(b.color.toLowerCase());
+                });
+              return Right(result);
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (_) {
+              return const Left('An unexpected error occurred');
+            }
+          },
         );
-      }
-      final result = lines.values.toList()
-        ..sort((a, b) {
-          final byArticle = a.article.toLowerCase().compareTo(
-            b.article.toLowerCase(),
-          );
-          return byArticle != 0
-              ? byArticle
-              : a.color.toLowerCase().compareTo(b.color.toLowerCase());
-        });
-      return Right(result);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
   }
 
   @override
   Future<Either<String, POModel?>> poByNo(String poNo) async {
-    try {
-      final snapshot = await _poCollection
-          .where('poNo', isEqualTo: poNo)
-          .limit(1)
-          .get();
-      return Right(
-        snapshot.docs.isEmpty
-            ? null
-            : POModel.fromSnapshot(snapshot.docs.first),
-      );
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance.trackRead<Either<String, POModel?>>(
+      module: 'export',
+      operation: 'poByNo',
+      documentId: '',
+      body: () async {
+        try {
+          final snapshot = await _poCollection
+              .where('poNo', isEqualTo: poNo)
+              .limit(1)
+              .get();
+          return Right(
+            snapshot.docs.isEmpty
+                ? null
+                : POModel.fromSnapshot(snapshot.docs.first),
+          );
+        } on FirebaseException catch (e) {
+          return Left('Database error: ${e.message}');
+        } catch (_) {
+          return const Left('An unexpected error occurred');
+        }
+      },
+    );
   }
 
   @override
@@ -199,24 +260,31 @@ class ExportRepository implements IExportRepository {
     required DateTime upToDate,
     String? excludeId,
   }) async {
-    final snapshot = await _issueCollection
-        .where('poNo', isEqualTo: poNo)
-        .limit(1000)
-        .get();
-    final cutoff = DateTime(upToDate.year, upToDate.month, upToDate.day);
-    return snapshot.docs
-        .where((doc) => doc.id != excludeId)
-        .where((doc) {
-          final data = doc.data();
-          return _normalize(data['article']) == _normalize(article) &&
-              _normalize(data['color']) == _normalize(color);
-        })
-        .where((doc) {
-          final date = _date(doc.data()['issueDate']);
-          if (date == null) return true;
-          return !DateTime(date.year, date.month, date.day).isAfter(cutoff);
-        })
-        .fold<int>(0, (total, doc) => total + _issueQuantity(doc.data()));
+    return ActivityLogService.instance.trackRead<int>(
+      module: 'export',
+      operation: 'getCumulativeIssueQty',
+      documentId: '',
+      body: () async {
+        final snapshot = await _issueCollection
+            .where('poNo', isEqualTo: poNo)
+            .limit(1000)
+            .get();
+        final cutoff = DateTime(upToDate.year, upToDate.month, upToDate.day);
+        return snapshot.docs
+            .where((doc) => doc.id != excludeId)
+            .where((doc) {
+              final data = doc.data();
+              return _normalize(data['article']) == _normalize(article) &&
+                  _normalize(data['color']) == _normalize(color);
+            })
+            .where((doc) {
+              final date = _date(doc.data()['issueDate']);
+              if (date == null) return true;
+              return !DateTime(date.year, date.month, date.day).isAfter(cutoff);
+            })
+            .fold<int>(0, (total, doc) => total + _issueQuantity(doc.data()));
+      },
+    );
   }
 
   @override
@@ -226,15 +294,22 @@ class ExportRepository implements IExportRepository {
     required String color,
     String? excludeId,
   }) async {
-    final snapshot = await _collection
-        .where('poNo', isEqualTo: poNo)
-        .limit(1000)
-        .get();
-    return _cumulativeExport(
-      snapshot.docs,
-      article: article,
-      color: color,
-      excludingId: excludeId,
+    return ActivityLogService.instance.trackRead<int>(
+      module: 'export',
+      operation: 'getCumulativeExportQty',
+      documentId: '',
+      body: () async {
+        final snapshot = await _collection
+            .where('poNo', isEqualTo: poNo)
+            .limit(1000)
+            .get();
+        return _cumulativeExport(
+          snapshot.docs,
+          article: article,
+          color: color,
+          excludingId: excludeId,
+        );
+      },
     );
   }
 
@@ -399,5 +474,3 @@ class _ExportValidationException implements Exception {
   const _ExportValidationException(this.message);
   final String message;
 }
-
-

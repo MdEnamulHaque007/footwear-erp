@@ -1,3 +1,7 @@
+import 'package:flutter/foundation.dart';
+
+import '../../domain/entities/user_entity.dart';
+
 /// ============================================================================
 /// ফাইল: lib/core/config/dev_config.dart
 /// স্তর: Core | মডিউল: ERP Common
@@ -12,6 +16,24 @@
 /// This file controls whether the app connects to local Firebase emulators
 /// instead of production. Only enable in development.
 class DevConfig {
+  static const enableAuth = bool.fromEnvironment(
+    'ENABLE_AUTH',
+    defaultValue: true,
+  );
+  static const bypassAuth = kDebugMode && !enableAuth;
+  static const autoLogin = bool.fromEnvironment(
+    'DEV_AUTO_LOGIN',
+    defaultValue: false,
+  );
+  static const devUser = UserEntity(
+    uid: 'dev-user',
+    email: 'dev@footwear.local',
+    displayName: 'Development Admin',
+    role: 'admin',
+    isEmailVerified: true,
+    isActive: true,
+  );
+
   /// Set to true to use local Firebase Auth + Firestore emulators.
   static const bool useFirebaseEmulator = false;
 

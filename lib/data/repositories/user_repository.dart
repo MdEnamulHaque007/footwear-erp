@@ -7,8 +7,10 @@
 /// রক্ষণাবেক্ষণ নির্দেশনা: business rule পরিবর্তনের সময় সংশ্লিষ্ট validation, permission ও unit test একসঙ্গে পর্যালোচনা করুন।
 /// সতর্কতা: এই বাংলা documentation কেবল ব্যাখ্যার জন্য; executable logic বা public API পরিবর্তন করে না।
 /// ============================================================================
+import '../../core/services/activity/activity_log_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
+
 import '../../core/config/dev_config.dart';
 import '../../core/constants/app_constants.dart';
 import '../../domain/entities/user_entity.dart';
@@ -35,51 +37,66 @@ class UserRepository implements IUserRepository {
     int page = 0,
     int limit = 20,
   }) async {
-    if (DevConfig.bypassAuth) {
-      final start = page * limit;
-      if (start >= _devUsers.length) return const Right([]);
-      final end = start + limit > _devUsers.length
-          ? _devUsers.length
-          : start + limit;
-      return Right(_devUsers.sublist(start, end));
-    }
-    try {
-      if (page == 0) _lastDoc = null;
-      Query<Map<String, dynamic>> query = _collection.orderBy(
-        FieldPath.documentId,
-      );
-      if (page > 0 && _lastDoc != null) {
-        query = query.startAfterDocument(_lastDoc!);
-      }
-      final snapshot = await query.limit(limit).get();
-      if (snapshot.docs.isNotEmpty) _lastDoc = snapshot.docs.last;
-      final users = snapshot.docs.map(UserModel.fromFirestore).toList();
-      return Right(users);
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (e) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance
+        .trackRead<Either<String, List<UserEntity>>>(
+          module: 'user_management',
+          operation: 'getAllUsers',
+          documentId: '',
+          body: () async {
+            if (DevConfig.bypassAuth) {
+              final start = page * limit;
+              if (start >= _devUsers.length) return const Right([]);
+              final end = start + limit > _devUsers.length
+                  ? _devUsers.length
+                  : start + limit;
+              return Right(_devUsers.sublist(start, end));
+            }
+            try {
+              if (page == 0) _lastDoc = null;
+              Query<Map<String, dynamic>> query = _collection.orderBy(
+                FieldPath.documentId,
+              );
+              if (page > 0 && _lastDoc != null) {
+                query = query.startAfterDocument(_lastDoc!);
+              }
+              final snapshot = await query.limit(limit).get();
+              if (snapshot.docs.isNotEmpty) _lastDoc = snapshot.docs.last;
+              final users = snapshot.docs.map(UserModel.fromFirestore).toList();
+              return Right(users);
+            } on FirebaseException catch (e) {
+              return Left('Database error: ${e.message}');
+            } catch (e) {
+              return const Left('An unexpected error occurred');
+            }
+          },
+        );
   }
 
   /// Loads a single profile by uid.
   @override
   Future<Either<String, UserEntity?>> byId(String uid) async {
-    if (DevConfig.bypassAuth) {
-      for (final user in _devUsers) {
-        if (user.uid == uid) return Right(user);
-      }
-      return const Right(null);
-    }
-    try {
-      final snapshot = await _collection.doc(uid).get();
-      if (!snapshot.exists) return const Right(null);
-      return Right(UserModel.fromFirestore(snapshot).toEntity());
-    } on FirebaseException catch (e) {
-      return Left('Database error: ${e.message}');
-    } catch (_) {
-      return const Left('An unexpected error occurred');
-    }
+    return ActivityLogService.instance.trackRead<Either<String, UserEntity?>>(
+      module: 'user_management',
+      operation: 'byId',
+      documentId: uid,
+      body: () async {
+        if (DevConfig.bypassAuth) {
+          for (final user in _devUsers) {
+            if (user.uid == uid) return Right(user);
+          }
+          return const Right(null);
+        }
+        try {
+          final snapshot = await _collection.doc(uid).get();
+          if (!snapshot.exists) return const Right(null);
+          return Right(UserModel.fromFirestore(snapshot).toEntity());
+        } on FirebaseException catch (e) {
+          return Left('Database error: ${e.message}');
+        } catch (_) {
+          return const Left('An unexpected error occurred');
+        }
+      },
+    );
   }
 
   /// Writes role, status and permissions as one atomic transaction.
@@ -198,9 +215,7 @@ class UserRepository implements IUserRepository {
     required String displayName,
   }) async {
     if (DevConfig.bypassAuth) {
-      return Right(
-        DevConfig.devUser.copyWith(displayName: displayName.trim()),
-      );
+      return Right(DevConfig.devUser.copyWith(displayName: displayName.trim()));
     }
     final result = await _authDataSource.bootstrapAdminProfile(
       displayName: displayName,
